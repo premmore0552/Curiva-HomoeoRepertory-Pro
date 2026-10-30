@@ -21,13 +21,22 @@ function validateEntry(value: unknown): value is KentRemedyAbbreviationRecord {
     value.source_pdf_page >= 10 &&
     value.source_pdf_page <= 18 &&
     Array.isArray(value.source_pdf_pages) &&
+    value.source_pdf_pages.length > 0 &&
+    value.source_pdf_pages.every((page) => Number.isInteger(page) && page >= 10 && page <= 18) &&
+    value.source_pdf_pages.includes(value.source_pdf_page) &&
     (value.source_column === "left" || value.source_column === "right") &&
     isRecord(value.source_position) &&
     typeof value.source_position.top === "number" &&
     typeof value.source_position.left === "number" &&
     typeof value.source_line_as_printed === "string" &&
     Array.isArray(value.continuation_lines) &&
-    typeof value.verification_status === "string"
+    value.continuation_lines.every((line) =>
+      isRecord(line) &&
+      Number.isInteger(line.pdf_page) &&
+      typeof line.text_as_printed === "string" &&
+      typeof line.join_rule === "string"
+    ) &&
+    ["transcribed_not_manually_proofread", "verified", "needs_review"].includes(String(value.verification_status))
   );
 }
 
@@ -61,6 +70,8 @@ export async function loadKentRemedyAbbreviationIndex(
     payload.source.pdf_page_end !== 18 ||
     !Array.isArray(payload.records) ||
     payload.record_count !== payload.records.length ||
+    typeof payload.duplicate_abbreviation_count !== "number" ||
+    payload.duplicate_abbreviation_count !== 0 ||
     !payload.records.every(validateEntry)
   ) {
     throw new Error("The Kent abbreviation dataset failed its structure or page-range checks.");
