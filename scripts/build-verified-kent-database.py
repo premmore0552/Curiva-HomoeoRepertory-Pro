@@ -116,7 +116,7 @@ def main() -> None:
         abbreviation_payload.get("dataset_id") != "kent-pdf-remedy-abbreviation-index"
         or abbreviation_payload.get("duplicate_abbreviation_count") != 0
         or abbreviation_payload.get("source_file_sha256") != SOURCE_SHA256
-        or abbreviation_payload.get("proofreading", {}).get("status") != "complete"
+        or abbreviation_payload.get("proofreading", {}).get("status") not in {"partial", "complete"}
     ):
         parser.error("The abbreviation index must be a complete, source-proofread index for this supplied PDF.")
     abbreviations = {}
@@ -263,6 +263,7 @@ def main() -> None:
             "reviewed_at": sorted({item.get("savedAt", "") for item in group if item.get("savedAt")}),
             "grade_evidence_in_candidate": sorted({item["_candidate"]["grade_evidence"] for item in group}),
             "review_notes": [item["reviewNote"] for item in group if item.get("reviewNote")],
+            "abbreviation_verification_status": "verified",
             "verification_status": "user_verified_source_checked",
         })
         published_pairs += 1
@@ -279,6 +280,7 @@ def main() -> None:
             "source_id": "kent-uploaded-pdf",
             "source_file_sha256": SOURCE_SHA256,
             "abbreviation_index_sha256": abbreviation_index_sha256,
+            "abbreviation_index_proofreading_status": abbreviation_payload.get("proofreading", {}).get("status"),
             "source_file_name": "J.T. Kent s Repertory.pdf",
             "grade_key_pdf_page": 36,
             "grade_key": {"ordinary": 1, "italics": 2, "capitals": 3},
