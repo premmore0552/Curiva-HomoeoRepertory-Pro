@@ -19,6 +19,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Check Python import scripts
+        run: python -m py_compile scripts/prepare-kent-pdf.py scripts/parse-kent-abbreviations.py
       - name: Install dependencies
         run: npm install
       - name: Type-check and build
