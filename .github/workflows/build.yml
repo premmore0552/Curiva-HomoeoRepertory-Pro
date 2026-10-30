@@ -5,25 +5,49 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+# Only the newest run per pull request/branch remains active.
+concurrency:
+  group: curiva-build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    name: Validate source importers and build app
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          node-version: 22
+          python-version: "3.12.15"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22.23.4"
+          package-manager-cache: false
+
       - name: Check Python import scripts
-        run: python -m py_compile scripts/prepare-kent-pdf.py scripts/parse-kent-abbreviations.py scripts/parse-kent-grade-candidates.py scripts/build-verified-kent-database.py
+        run: |
+          python -m py_compile \
+            scripts/prepare-kent-pdf.py \
+            scripts/parse-kent-abbreviations.py \
+            scripts/parse-kent-grade-candidates.py \
+            scripts/build-verified-kent-database.py
+
       - name: Test PDF import and section mapping
         run: python -m unittest discover -s tests -v
-      - name: Install dependencies
-        run: npm install
-      - name: Type-check and build
+
+      - name: Install exact locked dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Type-check and production build
         run: npm run build
