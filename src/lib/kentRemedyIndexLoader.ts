@@ -2,7 +2,7 @@ import type { KentRemedyAbbreviationDataset, KentRemedyAbbreviationRecord } from
 
 export class KentSourceDataNotInstalledError extends Error {
   constructor() {
-    super("Kent remedy abbreviation data is not installed in public/data/kent yet.");
+    super("Kent remedy abbreviation data is not installed in public/data/kent/structured yet.");
     this.name = "KentSourceDataNotInstalledError";
   }
 }
@@ -45,7 +45,7 @@ export async function loadKentRemedyAbbreviationIndex(
 ): Promise<KentRemedyAbbreviationDataset> {
   let response: Response;
   try {
-    response = await fetch("/data/kent/remedy-abbreviations.json", {
+    response = await fetch("/data/kent/structured/remedy-abbreviations.json", {
       signal,
       headers: { Accept: "application/json" },
     });
