@@ -368,6 +368,7 @@ function App() {
                 <Info size={16} />
                 <span>Grade key on PDF page {kentSourceCatalog.gradeKey.pdfPage}: Capitals = {kentSourceCatalog.gradeKey.capitals}; Italics = {kentSourceCatalog.gradeKey.italics}; Ordinary = {kentSourceCatalog.gradeKey.ordinary}. Grades will remain hidden until actual rubric tokens have been parsed and checked.</span>
               </div>
+              {sourceChapter && <KentSourceBrowser sectionId={sourceChapter.id} sectionTitle={sourceChapter.title} onClose={() => setSourceChapter(null)} />}
             </section>
                         <div className="disclaimer"><Info size={15} /><p><strong>Source-only status:</strong> No sample rubrics, remedies or grades are loaded. The chapter directory comes from the supplied PDF; the structured library is still being prepared and checked.</p></div>
           </>
