@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 
 type Page = 'home' | 'repertory' | 'materia' | 'cases' | 'shop';
+type Remedy = { id: string; abbr: string; name: string; author: string };
 type RubricRow = {
   id: string;
   path: string;
@@ -16,7 +17,8 @@ type RubricRow = {
   values: Record<string, number>;
 };
 
-// No placeholder repertory data is bundled. Records will come only from the supplied PDF.
+// No placeholder repertory data is bundled. These typed collections stay empty until PDF records are parsed.
+const remedies: Remedy[] = [];
 const addableRubrics: RubricRow[] = [];
 
 const cloneRows = (rows: RubricRow[]) => rows.map((row) => ({ ...row, values: { ...row.values } }));
