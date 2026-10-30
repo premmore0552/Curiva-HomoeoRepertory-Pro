@@ -45,6 +45,8 @@ export async function loadVerifiedKentDatabase(signal?: AbortSignal): Promise<Ve
     payload.source.grade_key.ordinary !== 1 ||
     payload.source.grade_key.italics !== 2 ||
     payload.source.grade_key.capitals !== 3 ||
+    typeof payload.source.abbreviation_index_sha256 !== "string" ||
+    !["partial", "complete"].includes(String(payload.source.abbreviation_index_proofreading_status)) ||
     !isObject(payload.data_policy) ||
     payload.data_policy.external_data_used !== false ||
     payload.data_policy.generated_rubrics !== 0 ||
@@ -66,7 +68,8 @@ export async function loadVerifiedKentDatabase(signal?: AbortSignal): Promise<Ve
       typeof remedy.abbreviation_as_printed !== "string" ||
       remedy.id !== remedy.abbreviation_as_printed ||
       typeof remedy.full_name_as_printed_in_pdf_index !== "string" ||
-      !remedy.full_name_as_printed_in_pdf_index.trim()
+      !remedy.full_name_as_printed_in_pdf_index.trim() ||
+      remedy.abbreviation_verification_status !== "verified"
     ) throw new Error("A remedy record does not match the source abbreviation index.");
     if (remedies.has(remedy.id)) throw new Error("The verified Kent database contains duplicate remedy IDs.");
     remedies.set(remedy.id, remedy.full_name_as_printed_in_pdf_index);
@@ -79,6 +82,7 @@ export async function loadVerifiedKentDatabase(signal?: AbortSignal): Promise<Ve
       !isObject(rubric) ||
       typeof rubric.id !== "string" ||
       typeof rubric.chapter_id !== "string" ||
+      rubric.source_id !== "kent-uploaded-pdf" ||
       typeof rubric.text_as_entered_from_pdf !== "string" ||
       !rubric.text_as_entered_from_pdf.trim() ||
       !Array.isArray(rubric.path_as_entered_from_pdf) ||
