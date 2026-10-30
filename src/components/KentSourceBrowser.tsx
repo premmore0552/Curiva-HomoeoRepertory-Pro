@@ -145,10 +145,13 @@ function validateSectionIndex(value: unknown): value is SectionIndex {
   );
 }
 
-function validateCandidateIndex(value: unknown): value is { dataset_id: string; source_file_sha256: string; chunks: CandidateChunk[] } {
+function validateCandidateIndex(value: unknown): value is { dataset_id: string; source_file_sha256: string; abbreviation_index_sha256: string; abbreviation_index_verified: true; chunks: CandidateChunk[] } {
   return isObject(value) &&
     value.dataset_id === "kent-pdf-rubric-grade-candidate-index" &&
     value.source_file_sha256 === "8f7ef6e5029dfb0bf9a05800f63e5e05043d39c74d5dd0df500a27484aecec6e" &&
+    typeof value.abbreviation_index_sha256 === "string" &&
+    /^[a-f0-9]{64}$/.test(value.abbreviation_index_sha256) &&
+    value.abbreviation_index_verified === true &&
     Array.isArray(value.chunks) &&
     value.chunks.every((chunk) =>
       isObject(chunk) &&
@@ -412,8 +415,12 @@ export default function KentSourceBrowser({
 
       if (candidateResponse.ok) {
         const candidatePayload: unknown = await candidateResponse.json();
-        if (!validateCandidateIndex(candidatePayload)) throw new Error("The grade-candidate index is malformed.");
-        setCandidateChunks(candidatePayload.chunks.filter((item) => item.section_id === sectionId).sort((a, b) => a.part - b.part));
+        if (!validateCandidateIndex(candidatePayload)) {
+          setCandidateChunks([]);
+          setCandidateError("Candidate review is locked until its chunks are regenerated from a source-proofread abbreviation index. Follow the Phase 2 review guide.");
+        } else {
+          setCandidateChunks(candidatePayload.chunks.filter((item) => item.section_id === sectionId).sort((a, b) => a.part - b.part));
+        }
       } else if (candidateResponse.status !== 404) {
         throw new Error("Could not load grade candidate index (HTTP " + candidateResponse.status + ").");
       }
@@ -463,7 +470,7 @@ export default function KentSourceBrowser({
     const match = candidateChunk;
     if (!match) {
       setCandidates([]);
-      setCandidateError("No grade-candidate chunk exists for this chapter part. Run the grade-candidate importer first.");
+      setCandidateError("No source-proofread candidate chunk is installed for this chapter part. Proofread abbreviations, regenerate candidate chunks and copy the new index/chunks into the app.");
       return;
     }
     const controller = new AbortController();
