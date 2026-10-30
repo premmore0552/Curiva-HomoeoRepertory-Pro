@@ -47,28 +47,28 @@ def load_candidate_references(index_path: Path, required_ids: set[str], abbrevia
 
     # Candidate IDs begin with their source chunk ID, so only read chunks that
     # can contain a reviewed ID. This avoids scanning hundreds of MB on every build.
-    chunks_by_prefix = {}
+    chunks_by_id = {}
     for chunk in index.get("chunks", []):
         chunk_id = chunk.get("chunk_id")
-        if not isinstance(chunk_id, str) or not chunk_id:
-            raise ValueError("Candidate index chunk is missing its stable chunk_id.")
-        chunks_by_prefix[chunk_id + "-p"] = chunk
+        if not isinstance(chunk_id, str) or not chunk_id or chunk_id in chunks_by_id:
+            raise ValueError("Candidate index chunk IDs must be unique, non-empty strings.")
+        chunks_by_id[chunk_id] = chunk
 
-    requested_by_prefix: dict[str, set[str]] = defaultdict(set)
+    requested_by_chunk: dict[str, set[str]] = defaultdict(set)
     unknown_ids = []
     for candidate_id in required_ids:
-        matches = [prefix for prefix in chunks_by_prefix if candidate_id.startswith(prefix)]
-        if len(matches) != 1:
+        chunk_id = candidate_id.split("-p", 1)[0]
+        if not candidate_id.startswith(chunk_id + "-p") or chunk_id not in chunks_by_id:
             unknown_ids.append(candidate_id)
             continue
-        requested_by_prefix[matches[0]].add(candidate_id)
+        requested_by_chunk[chunk_id].add(candidate_id)
     if unknown_ids:
         raise ValueError("Review export contains candidate IDs with no source chunk: " + ", ".join(sorted(unknown_ids)[:10]))
 
     references: dict[str, dict[str, Any]] = {}
     base = index_path.parent
-    for prefix, requested_ids in requested_by_prefix.items():
-        chunk = chunks_by_prefix[prefix]
+    for chunk_id, requested_ids in requested_by_chunk.items():
+        chunk = chunks_by_id[chunk_id]
         path = safe_path(base, str(chunk.get("file", "")))
         if not path.is_file():
             raise FileNotFoundError("Candidate source chunk is missing: " + str(path))
