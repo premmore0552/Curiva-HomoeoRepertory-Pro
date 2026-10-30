@@ -8,7 +8,6 @@ retains the source line and typography evidence, and flags every candidate for r
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import re
 from collections import Counter
@@ -16,8 +15,6 @@ from pathlib import Path
 from typing import Iterable
 
 TOKEN = re.compile(r"(?<![\w-])(?P<token>[A-Za-zÀ-ÖØ-öø-ÿÆæŒœ0-9]+(?:-[A-Za-zÀ-ÖØ-öø-ÿÆæŒœ0-9]+)*\.)(?!\w)", re.UNICODE)
-CHUNK_DIR = "chunks"
-
 
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
@@ -84,11 +81,20 @@ def iter_chapter_pages(source: Path, section_index: dict) -> Iterable[dict]:
         for section in section_index.get("sections", [])
         if section.get("internal_page_range") is not None
     }
+    expected_pages = {
+        page_number
+        for section in section_index.get("sections", [])
+        if section.get("internal_page_range") is not None
+        for page_number in range(int(section["pdf_page_start"]), int(section["pdf_page_end"]) + 1)
+    }
     seen_pages: set[int] = set()
     for chunk in section_index.get("chunks", []):
         if chunk.get("section_id") not in chapter_ids:
             continue
-        path = source / chunk["file"]
+        relative_path = Path(chunk["file"])
+        if relative_path.is_absolute() or ".." in relative_path.parts:
+            raise ValueError("Unsafe chunk path in section index: " + str(relative_path))
+        path = source / relative_path
         if not path.is_file():
             raise FileNotFoundError("Missing chapter source chunk: " + str(path))
         found = 0
@@ -111,6 +117,13 @@ def iter_chapter_pages(source: Path, section_index: dict) -> Iterable[dict]:
             raise ValueError(
                 f"Chunk page count mismatch in {path}: expected {chunk['page_count']}, found {found}"
             )
+    missing_pages = sorted(expected_pages - seen_pages)
+    unexpected_pages = sorted(seen_pages - expected_pages)
+    if missing_pages or unexpected_pages:
+        raise ValueError(
+            "Chapter page coverage mismatch. Missing: " + str(missing_pages[:20]) +
+            "; unexpected: " + str(unexpected_pages[:20])
+        )
 
 
 def extract_candidates(source: Path, abbreviations: dict[str, str]) -> tuple[list[dict], dict]:
