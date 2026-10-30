@@ -20,6 +20,7 @@ def load_script(name: str, filename: str):
 
 PREPARE = load_script("prepare_kent_pdf", "prepare-kent-pdf.py")
 ABBREVIATIONS = load_script("parse_kent_abbreviations", "parse-kent-abbreviations.py")
+GRADE_CANDIDATES = load_script("parse_kent_grade_candidates", "parse-kent-grade-candidates.py")
 
 
 class SectionMapTests(unittest.TestCase):
@@ -101,6 +102,48 @@ class AbbreviationParserTests(unittest.TestCase):
             self.make_source(root, missing_page=14)
             with self.assertRaisesRegex(ValueError, "Missing abbreviation source pages"):
                 ABBREVIATIONS.load_pages(root)
+
+    def test_grade_candidates_keep_pdf_style_and_remain_unverified(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "chunks" / "mind").mkdir(parents=True)
+            (root / "structured").mkdir()
+            index = {
+                "sections": [{"id": "mind", "internal_page_range": [1, 95]}],
+                "chunks": [{
+                    "section_id": "mind", "part": 1,
+                    "pdf_page_start": 66, "pdf_page_end": 66,
+                    "page_count": 1, "file": "chunks/mind/mind-001.jsonl"
+                }]
+            }
+            (root / "section-index.json").write_text(json.dumps(index), encoding="utf-8")
+            page = {
+                "pdf_page": 66, "section_id": "mind",
+                "text_items": [
+                    {"text": "Nat-m., ", "top": 206, "left": 183, "italic": False},
+                    {"text": "tarent. ", "top": 204, "left": 256, "italic": True},
+                    {"text": "APIS.", "top": 204, "left": 322, "italic": False, "bold": True}
+                ]
+            }
+            (root / "chunks" / "mind" / "mind-001.jsonl").write_text(json.dumps(page) + "\\n", encoding="utf-8")
+            abbreviation_data = {
+                "dataset_id": "kent-pdf-remedy-abbreviation-index",
+                "duplicate_abbreviation_count": 0,
+                "records": [
+                    {"abbreviation_as_printed": "Nat-m."},
+                    {"abbreviation_as_printed": "Tarent."},
+                    {"abbreviation_as_printed": "Apis."}
+                ]
+            }
+            abbreviation_path = root / "structured" / "remedy-abbreviations.json"
+            abbreviation_path.write_text(json.dumps(abbreviation_data), encoding="utf-8")
+            abbreviation_map = GRADE_CANDIDATES.load_abbreviation_map(abbreviation_path)
+            candidates, qc = GRADE_CANDIDATES.extract_candidates(root, abbreviation_map)
+
+        self.assertEqual([item["candidate_grade_from_source_typography"] for item in candidates], [1, 2, 3])
+        self.assertEqual([item["verification_status"] for item in candidates], ["needs_review"] * 3)
+        self.assertTrue(all(item["rubric_assignment"] == "unassigned" for item in candidates))
+        self.assertEqual(qc["records_verified"], 0)
 
 
 if __name__ == "__main__":
