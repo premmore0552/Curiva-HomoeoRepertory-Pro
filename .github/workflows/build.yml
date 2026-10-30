@@ -21,6 +21,8 @@ jobs:
           node-version: 22
       - name: Check Python import scripts
         run: python -m py_compile scripts/prepare-kent-pdf.py scripts/parse-kent-abbreviations.py
+      - name: Test PDF import and section mapping
+        run: python -m unittest discover -s tests -v
       - name: Install dependencies
         run: npm install
       - name: Type-check and build
