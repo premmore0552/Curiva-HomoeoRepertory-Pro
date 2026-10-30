@@ -56,9 +56,14 @@ def load_candidate_references(index_path: Path, required_ids: set[str], abbrevia
 
     requested_by_chunk: dict[str, set[str]] = defaultdict(set)
     unknown_ids = []
+    candidate_id_pattern = re.compile(r"^(?P<chunk>.+)-p\\d{4}-y\\d+-x\\d+-i\\d+-t\\d+$")
     for candidate_id in required_ids:
-        chunk_id = candidate_id.split("-p", 1)[0]
-        if not candidate_id.startswith(chunk_id + "-p") or chunk_id not in chunks_by_id:
+        match = candidate_id_pattern.fullmatch(candidate_id)
+        if not match:
+            unknown_ids.append(candidate_id)
+            continue
+        chunk_id = match.group("chunk")
+        if chunk_id not in chunks_by_id:
             unknown_ids.append(candidate_id)
             continue
         requested_by_chunk[chunk_id].add(candidate_id)
