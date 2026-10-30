@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react';
 import {
-  Activity, ArrowDownUp, BookOpen, CalendarDays, Check, ChevronDown,
-  CircleHelp, Copy, Download, FileSpreadsheet, Filter, FolderOpen,
-  Home, Info, Menu, Merge, Plus, Search, ShoppingBag, SlidersHorizontal,
-  Trash2, Undo2, Redo2, Users, X, ChartNoAxesColumn, UserRound,
+  Activity, ArrowDownUp, BookOpen, ChevronDown, CircleHelp, Copy, Download,
+  Filter, FolderOpen, Home, Info, Menu, Merge, Plus, Search, ShoppingBag,
+  SlidersHorizontal, Trash2, Undo2, Redo2, Users, X, ChartNoAxesColumn,
 } from 'lucide-react';
 
 type Page = 'home' | 'repertory' | 'materia' | 'cases' | 'shop';
