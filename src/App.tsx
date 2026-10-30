@@ -126,12 +126,14 @@ function App() {
     author: 'Kent',
   })) ?? [], [verifiedDatabase]);
 
-  const addableRubrics = useMemo<RubricRow[]>(() => verifiedDatabase?.rubrics.map((rubric) => ({
-    id: rubric.id,
-    path: rubric.text_as_entered_from_pdf,
-    source: 'Kent PDF · pp. ' + [...new Set(rubric.grades.flatMap((grade) => grade.source_pdf_pages))].sort((a, b) => a - b).join(', '),
-    values: Object.fromEntries(rubric.grades.map((grade) => [grade.remedy_id, grade.grade])),
-  })) ?? [], [verifiedDatabase]);
+  const addableRubrics = useMemo<RubricRow[]>(() => verifiedDatabase?.rubrics
+    .filter((rubric) => rubric.grades.length > 0)
+    .map((rubric) => ({
+      id: rubric.id,
+      path: rubric.path_as_entered_from_pdf.join(' / '),
+      source: 'Kent PDF · pp. ' + rubric.source_pdf_pages.join(', '),
+      values: Object.fromEntries(rubric.grades.map((grade) => [grade.remedy_id, grade.grade])),
+    })) ?? [], [verifiedDatabase]);
 
   useEffect(() => {
     if (page !== 'materia') return;
