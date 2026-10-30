@@ -5,25 +5,63 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+# Cancel older runs for the same PR/branch when a newer commit arrives.
+# This prevents transient half-updated commits from stacking up as separate failures.
+concurrency:
+  group: curiva-build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
   build:
+    name: Python validation and frontend build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: "22"
+
       - name: Check Python import scripts
-        run: python -m py_compile scripts/prepare-kent-pdf.py scripts/parse-kent-abbreviations.py scripts/parse-kent-grade-candidates.py scripts/build-verified-kent-database.py
+        run: |
+          python -m py_compile \
+            scripts/prepare-kent-pdf.py \
+            scripts/parse-kent-abbreviations.py \
+            scripts/parse-kent-grade-candidates.py \
+            scripts/build-verified-kent-database.py
+
       - name: Test PDF import and section mapping
         run: python -m unittest discover -s tests -v
-      - name: Install dependencies
-        run: npm install
+
+      # Temporary bootstrap step: create a real lockfile with the CI Node/npm version.
+      # The artifact is committed in the following change, then this step is removed.
+      - name: Generate package lock for first reproducible install
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+      - name: Export generated dependency lock
+        uses: actions/upload-artifact@v4
+        with:
+          name: curiva-package-lock
+          path: package-lock.json
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+
       - name: Type-check and build
         run: npm run build
