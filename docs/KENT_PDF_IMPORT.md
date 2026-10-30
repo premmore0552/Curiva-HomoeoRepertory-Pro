@@ -80,23 +80,26 @@ The chapter browser expects the `section-index.json` file and `chunks/` director
 That data directory is ignored by Git on purpose. The repository is public and the supplied PDF displays a 1998 MEDI-T copyright notice, so full book-derived data must not be committed publicly without confirming redistribution rights. A private repository reduces exposure but is not itself proof of permission.
 
 
-## Second structured stage: source-grade candidates (not verified rubric data)
+## Second structured stage: source grade candidates (not verified rubrics)
 
-Once the abbreviation index is created, extract candidate remedy tokens from the repertory chapters:
+After the PDF abbreviation table is extracted, run:
 
 ```bash
 python scripts/parse-kent-grade-candidates.py --source "$HOME/Curiva/kent-source-chunks"
 ```
 
-The script matches tokens only against the PDF-derived abbreviation index and retains the complete extracted line, PDF page, chapter, token spelling, layout position, font family, color, bold/italic flags, and the source grade-key interpretation. It creates:
+The parser checks all 2,768 repertory pages in all 34 chapters. It matches remedy tokens only against the 650 abbreviations transcribed from this PDF. It writes:
+- `structured/grade-candidates-index.json` — per-chunk page ranges and candidate counts
+- `structured/grade-candidates/<chapter>/<chunk>.jsonl` — source-linked candidates, split into the same small chapter chunks used by the source reader
+- `structured/rubric-grade-candidates-qc.json` — candidate counts, grade evidence, ungraded style conflicts and possible wrapped fragments
 
-- `structured/rubric-grade-candidates.jsonl` — source-linked token candidates
-- `structured/rubric-grade-candidates-qc.json` — counts by chapter and source-grade evidence, conflicting style evidence, pages without layout spans, and possible line-wrapped tokens
+Current audit of the uploaded file produced **433,541 candidate occurrences** in 127 chapter chunks. Style evidence: 284,339 ordinary/grade-1 candidates, 116,412 italic/grade-2 candidates, 32,726 red-uppercase/grade-3 candidates, and 64 ambiguous style cases left ungraded. The parser also flags 9,537 possible line-wrapped fragments for review.
 
-**This is not a finished repertory database.** The candidates do not yet have a rubric hierarchy; every record is marked `needs_review` and `rubric_assignment: unassigned`. A typography-to-grade candidate is only a transcription aid. It must be checked against the PDF image and assigned to the correct rubric before it can enter the repertorization matrix. Mixed uppercase/italic evidence is left without a grade candidate. Wrapped abbreviations are flagged, not silently joined.
+The source states the grade key on PDF page 36: capitals = 3, italics = 2, ordinary = 1. The implementation additionally checks the PDF's observed red text style when proposing grade 3. Uppercase tokens without the expected red style are left ungraded. Italic/uppercase conflicts and unrecognised styles are also left ungraded.
 
-The source grade key is taken from PDF page 36: capitals = 3, italics = 2, ordinary = 1. No external repertory or remedy information is consulted.
+The parser supplies a **suggested rubric context** using the PDF's own heading font/color and text before a colon, then carries that context over wrapped continuation lines. This context is only a navigation aid; it is not an accepted rubric assignment.
 
+**No candidate is verified.** Every record remains `needs_review` and `rubric_assignment: unassigned`. Review the original PDF page, enter/confirm the exact rubric path, select the grade and check the source-page box in the app. The source PDF's own wording, not an external repertory, is the only permitted basis.
 
 ## App installation after local extraction
 
@@ -110,6 +113,7 @@ mkdir -p public/data/kent/structured
 cp "$HOME/Curiva/kent-source-chunks/structured/remedy-abbreviations.json" public/data/kent/structured/
 cp "$HOME/Curiva/kent-source-chunks/structured/grade-candidates-index.json" public/data/kent/structured/
 cp -R "$HOME/Curiva/kent-source-chunks/structured/grade-candidates" public/data/kent/structured/
+cp "$HOME/Curiva/kent-source-chunks/structured/rubric-grade-candidates-qc.json" public/data/kent/structured/
 ```
 
 The Materia Medica section displays the PDF abbreviation index, and the chapter browser offers a **Grade candidates** review tab. Reviews are saved in this browser on this device. Use **Export reviews** to create a review JSON file. Do not clear browser site data before exporting reviews.
