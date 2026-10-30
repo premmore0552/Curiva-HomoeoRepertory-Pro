@@ -211,3 +211,29 @@ button:disabled{cursor:not-allowed;opacity:.45}
  .remedy-library{grid-template-columns:1fr}
  .app-footer{flex-wrap:wrap;justify-content:center;text-align:center}
 }
+
+/* PDF-derived library directory */
+.library-browser{margin:18px 0 0;background:#fff;border:1px solid #e1e7ed;border-radius:20px;padding:22px;box-shadow:0 2px 9px #21384e05}
+.library-browser-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:17px}
+.library-browser-heading h2{font-family:Manrope,sans-serif;font-size:21px;margin:0;color:#1b2c3e}
+.library-browser-heading p{font-size:12px;line-height:1.55;color:#788696;margin:6px 0 0}
+.catalog-status{flex:none;border:1px solid #e7d8b6;background:#fff9ec;color:#886c35;border-radius:20px;padding:7px 10px;font-size:10px;font-weight:800}
+.library-chapter-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.library-chapter-card{border:1px solid #e6ebf0;border-radius:11px;padding:12px;min-width:0;background:#fff}
+.chapter-card-main{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.chapter-card-main strong{font-size:12px;color:#284e72}
+.chapter-card-main span{white-space:nowrap;color:#8895a3;font-size:10px;font-variant-numeric:tabular-nums}
+.chapter-subentry{display:flex;justify-content:space-between;gap:8px;margin-top:8px;padding-top:7px;border-top:1px solid #f0f2f4;font-size:10px;color:#687889}
+.chapter-subentry small{font-size:10px;color:#8a96a1}
+.chapter-source-flag{margin-top:9px;padding:8px;border-radius:7px;background:#fff7e8;color:#936d25;font-size:9px;line-height:1.45}
+.source-grade-note{display:flex;gap:9px;align-items:flex-start;margin-top:15px;padding:11px 12px;border:1px solid #dceaf4;border-radius:10px;background:#f5faff;color:#426480;font-size:10px;line-height:1.55}
+.source-grade-note svg{flex:none}
+.empty-library-note{margin-top:16px;padding:15px;background:#f7fafc;border:1px dashed #d7e1e9;border-radius:12px;color:#778697;font-size:12px;line-height:1.55}
+@media(max-width:760px){
+ .library-browser{padding:14px;border-radius:15px}
+ .library-browser-heading{flex-direction:column;gap:9px}
+ .library-browser-heading h2{font-size:18px}
+ .library-chapter-grid{grid-template-columns:1fr}
+ .chapter-card-main strong{font-size:13px}
+ .catalog-status{font-size:9px}
+}
