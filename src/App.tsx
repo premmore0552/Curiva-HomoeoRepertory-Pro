@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { kentSourceCatalog } from './data/kent-source-catalog';
 import {
   Activity, ArrowDownUp, BookOpen, ChevronDown, CircleHelp, Copy, Download,
   Filter, FolderOpen, Home, Info, Menu, Merge, Plus, Search, ShoppingBag,
@@ -14,38 +15,10 @@ type RubricRow = {
   values: Record<string, number>;
 };
 
-const remedies: Remedy[] = [
-  { id: 'bell', abbr: 'Bell.', name: 'Belladonna', author: 'Kent' },
-  { id: 'lach', abbr: 'Lach.', name: 'Lachesis', author: 'Kent' },
-  { id: 'glon', abbr: 'Glon.', name: 'Glonoinum', author: 'Boericke' },
-  { id: 'ars', abbr: 'Ars.', name: 'Arsenicum album', author: 'Kent' },
-  { id: 'sang', abbr: 'Sang.', name: 'Sanguinaria', author: 'Kent' },
-  { id: 'nitac', abbr: 'Nit-ac.', name: 'Nitricum acidum', author: 'Kent' },
-  { id: 'sep', abbr: 'Sep.', name: 'Sepia', author: 'Kent' },
-  { id: 'natc', abbr: 'Nat-c.', name: 'Natrum carbonicum', author: 'Boericke' },
-  { id: 'coloc', abbr: 'Coloc.', name: 'Colocynthis', author: 'Kent' },
-  { id: 'gels', abbr: 'Gels.', name: 'Gelsemium', author: 'Kent' },
-  { id: 'calc', abbr: 'Calc.', name: 'Calcarea carbonica', author: 'Kent' },
-  { id: 'alum', abbr: 'Alum.', name: 'Alumina', author: 'Kent' },
-  { id: 'puls', abbr: 'Puls.', name: 'Pulsatilla', author: 'Kent' },
-  { id: 'amm', abbr: 'Am-m.', name: 'Ammonium muriaticum', author: 'Boericke' },
-  { id: 'cact', abbr: 'Cact.', name: 'Cactus grandiflorus', author: 'Kent' },
-  { id: 'cyc', abbr: 'Cyc.', name: 'Cyclamen', author: 'Kent' },
-];
-
-const initialRows: RubricRow[] = [
-  { id: 'r1', path: 'mind - anxiety - headache, with', source: 'Sample repertory data', values: { bell: 1, lach: 3, glon: 3, ars: 3, sang: 3, nitac: 1, sep: 3, natc: 1, coloc: 3, gels: 3, calc: 1, alum: 2, puls: 1, cact: 1, cyc: 3 } },
-  { id: 'r2', path: 'head - pain, headache - light - agg. - artificial', source: 'Sample repertory data', values: { bell: 4, lach: 3, glon: 4, sang: 3, sep: 4, natc: 4 } },
-  { id: 'r3', path: 'head - pain, headache - lying - amel.', source: 'Sample repertory data', values: { bell: 4, lach: 4, glon: 3, ars: 4, sang: 3, nitac: 3, sep: 3, natc: 3, coloc: 3, gels: 3, calc: 3, alum: 3, puls: 4, amm: 1, cact: 3 } },
-  { id: 'r4', path: 'head - pulsation - temples', source: 'Sample repertory data', values: { bell: 4, lach: 3, glon: 4, ars: 3, sang: 3, nitac: 3, natc: 1, coloc: 3, gels: 3, calc: 1, alum: 3, amm: 3, cact: 3, cyc: 1 } },
-  { id: 'r5', path: 'generalities - food and drinks - lemonade - desires', source: 'Sample repertory data', values: { bell: 4, lach: 1, ars: 2, nitac: 3, calc: 3, puls: 3, amm: 3, cyc: 3 } },
-];
-
-const addableRubrics: RubricRow[] = [
-  { id: 'r6', path: 'head - pain - morning - waking, on', source: 'Unverified sample', values: { bell: 2, glon: 3, ars: 2, gels: 3, calc: 1 } },
-  { id: 'r7', path: 'stomach - nausea - motion - from', source: 'Unverified sample', values: { ars: 3, gels: 3, puls: 2, sep: 1, calc: 1 } },
-  { id: 'r8', path: 'generalities - heat - amel.', source: 'Unverified sample', values: { lach: 2, ars: 1, puls: 3, sep: 2, natc: 1 } },
-];
+// No placeholder repertory data is bundled. Records will come only from the supplied PDF.
+const remedies: Remedy[] = [];
+const initialRows: RubricRow[] = [];
+const addableRubrics: RubricRow[] = [];
 
 const cloneRows = (rows: RubricRow[]) => rows.map((row) => ({ ...row, values: { ...row.values } }));
 const gradeClass = (grade: number) => `grade grade-${grade}`;
@@ -65,10 +38,7 @@ function Brand() {
 function App() {
   const [page, setPage] = useState<Page>('repertory');
   const [activeCase, setActiveCase] = useState('A');
-  const [caseSets, setCaseSets] = useState<Record<string, RubricRow[]>>({
-    A: cloneRows(initialRows), B: cloneRows(initialRows.slice(0, 3)),
-    C: cloneRows(initialRows.slice(1, 4)), D: cloneRows(initialRows.slice(2, 5)),
-  });
+  const [caseSets, setCaseSets] = useState<Record<string, RubricRow[]>>({ A: [], B: [], C: [], D: [] });
   const rows = caseSets[activeCase] ?? [];
   const [past, setPast] = useState<RubricRow[][]>([]);
   const [future, setFuture] = useState<RubricRow[][]>([]);
@@ -80,10 +50,10 @@ function App() {
   const [showAuthors, setShowAuthors] = useState(false);
   const [showAddRubric, setShowAddRubric] = useState(false);
   const [rubricSearch, setRubricSearch] = useState('');
-  const [caseName, setCaseName] = useState('S.R.');
+  const [caseName, setCaseName] = useState('New case');
   const [showHelp, setShowHelp] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
-  const [notice, setNotice] = useState('Demo workspace · sample data only');
+  const [notice, setNotice] = useState('PDF chapter index loaded · structured rubric data not imported yet');
 
   const updateRows = (next: RubricRow[]) => {
     setPast((stack) => [...stack.slice(-29), cloneRows(rows)]);
@@ -248,7 +218,7 @@ function App() {
 
               <div className="matrix-toolbar">
                 <div className="selection-summary">
-                  <div><strong>Selected Rubrics: {rows.length}</strong><span className="sample-tag">SAMPLE DATA</span></div>
+                  <div><strong>Selected Rubrics: {rows.length}</strong><span className="sample-tag">SOURCE DATA PENDING</span></div>
                   <div className="history-actions">
                     <button className="undo-button" onClick={undo} disabled={!past.length}><Undo2 size={15} /> Undo</button>
                     <button className="redo-button" onClick={redo} disabled={!future.length}><Redo2 size={15} /> Redo</button>
@@ -265,17 +235,17 @@ function App() {
 
               {showAddRubric && (
                 <div className="add-rubric-panel">
-                  <div className="add-rubric-heading"><div><strong>Add rubric</strong><span>Choose from prototype sample entries</span></div><button className="icon-button" onClick={() => setShowAddRubric(false)} aria-label="Close add rubric"><X size={18} /></button></div>
+                  <div className="add-rubric-heading"><div><strong>Add rubric</strong><span>Only verified PDF-derived rubrics will appear here</span></div><button className="icon-button" onClick={() => setShowAddRubric(false)} aria-label="Close add rubric"><X size={18} /></button></div>
                   <div className="rubric-search-box"><Search size={16} /><input autoFocus value={rubricSearch} onChange={(event) => setRubricSearch(event.target.value)} placeholder="Search rubric wording..." /></div>
                   <div className="rubric-candidates">
                     {filteredAddable.map((rubric) => <button key={rubric.id} onClick={() => addRubric(rubric)}><Plus size={15} /><span>{rubric.path}</span></button>)}
-                    {!filteredAddable.length && <p>No sample rubric matches that search.</p>}
+                    {!filteredAddable.length && <p>No verified rubric records have been imported yet. Browse the source chapter index below.</p>}
                   </div>
                 </div>
               )}
 
               {showHelp && (
-                <div className="inline-notice help-notice"><Info size={16} /><span>The coloured circles show demonstration grades (1–4). This first build uses illustrative entries only. Verified repertory records, source/page references, and remedy-grade provenance must be added before real study use.</span><button onClick={() => setShowHelp(false)} aria-label="Dismiss"><X size={15} /></button></div>
+                <div className="inline-notice help-notice"><Info size={16} /><span>The matrix remains empty until PDF-derived rubric and remedy-grade records are parsed and verified. The PDF states capitals = 3, italics = 2, ordinary = 1 (PDF page 36).</span><button onClick={() => setShowHelp(false)} aria-label="Dismiss"><X size={15} /></button></div>
               )}
 
               <div className="matrix-scroll">
@@ -314,7 +284,7 @@ function App() {
                         })}
                       </tr>
                     ))}
-                    {!rows.length && <tr><td className="empty-matrix" colSpan={visibleRemedies.length + 1}>No rubrics selected. Use the search button to add a sample rubric.</td></tr>}
+                    {!rows.length && <tr><td className="empty-matrix" colSpan={visibleRemedies.length + 1}>No verified rubric data has been imported yet. The PDF chapter directory is shown below.</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -324,7 +294,7 @@ function App() {
                 <div className="matrix-footer-actions"><span>{rows.length} rubrics · {visibleRemedies.length} remedies</span><button className="remove-selected-button" onClick={removeSelected} disabled={!selectedRows.length}><Trash2 size={14} /> Remove selected</button></div>
               </div>
             </section>
-            <div className="disclaimer"><Info size={15} /><p><strong>Prototype data notice:</strong> All grades and rubric rows currently shown are illustrative interface samples, not verified entries from Kent or another published repertory. Do not use this dataset for patient analysis or treatment decisions.</p></div>
+            <div className="disclaimer"><Info size={15} /><p><strong>Source-only status:</strong> No sample rubrics, remedies or grades are loaded. The chapter directory comes from the supplied PDF; the structured library is still being prepared and checked.</p></div>
           </>
         )}
 
@@ -338,13 +308,13 @@ function App() {
         </section>}
 
         {page === 'materia' && <section className="page-card">
-          <div className="page-heading"><div className="eyebrow">REFERENCE LIBRARY</div><h1>Materia Medica</h1><p>Remedy index preview. Full source-linked materia medica content is not included yet.</p></div>
+          <div className="page-heading"><div className="eyebrow">REFERENCE LIBRARY</div><h1>Materia Medica</h1><p>The PDF’s remedy abbreviation index (introductory PDF pages 10–18) will be parsed into this library. No external remedy entries are added.</p></div>
           <div className="remedy-library">{remedies.slice(0, 12).map((remedy) => <article className="remedy-card" key={remedy.id}><div className="remedy-avatar">{remedy.abbr.slice(0, 1)}</div><div><strong>{remedy.name}</strong><span>{remedy.abbr} · Author: {remedy.author}</span></div><span className="coming-label">Index preview</span></article>)}</div>
         </section>}
 
         {page === 'cases' && <section className="page-card">
           <div className="page-heading"><div className="eyebrow">CASE WORKSPACE</div><h1>Cases</h1><p>Prototype case sets are stored only in this browser session. There is no cloud sync or patient account system.</p></div>
-          <div className="case-list">{['A', 'B', 'C', 'D'].map((tab) => <button key={tab} className="case-list-card" onClick={() => { setActiveCase(tab); setPage('repertory'); }}><div className="case-list-icon"><FolderOpen /></div><div><strong>Case set {tab}</strong><span>{(caseSets[tab] ?? []).length} selected sample rubrics · local session</span></div><ChevronDown className="case-list-arrow" /></button>)}</div>
+          <div className="case-list">{['A', 'B', 'C', 'D'].map((tab) => <button key={tab} className="case-list-card" onClick={() => { setActiveCase(tab); setPage('repertory'); }}><div className="case-list-icon"><FolderOpen /></div><div><strong>Case set {tab}</strong><span>{(caseSets[tab] ?? []).length} verified rubrics selected · local prototype</span></div><ChevronDown className="case-list-arrow" /></button>)}</div>
           <div className="local-data-note"><Info size={16} /> Do not enter identifiable patient details. Case sets are not encrypted or saved to an account.</div>
         </section>}
 
