@@ -293,7 +293,6 @@ def main() -> None:
         "candidate_id_scheme": "chunk-page-layout-coordinate-span-token-v1",
         "verification_status": "needs_review",
         "review_status_counts": {"pending": total_candidates, "verified": 0, "rejected": 0, "uncertain": 0},
-        "review_status_counts": {"pending": total_candidates, "verified": 0, "rejected": 0, "uncertain": 0},
         "rubric_hierarchy_assigned": False,
         "chunks": chunk_index,
     }
