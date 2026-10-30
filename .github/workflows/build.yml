@@ -7,8 +7,7 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# Keep only the newest check for each PR/branch. Older overlapping checks
-# are cancelled instead of appearing as competing stale failures.
+# Only the newest run per pull request/branch remains active.
 concurrency:
   group: curiva-build-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
