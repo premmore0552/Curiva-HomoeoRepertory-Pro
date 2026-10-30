@@ -139,17 +139,25 @@ function validateSectionIndex(value: unknown): value is SectionIndex {
   );
 }
 
-function validateCandidateIndex(value: unknown): value is { chunks: CandidateChunk[] } {
-  return isObject(value) && Array.isArray(value.chunks) && value.chunks.every((chunk) =>
-    isObject(chunk) &&
-    typeof chunk.section_id === "string" &&
-    Number.isInteger(chunk.part) &&
-    Number.isInteger(chunk.candidate_count) &&
-    typeof chunk.file === "string" &&
-    chunk.file.startsWith("grade-candidates/") &&
-    !chunk.file.includes("..") &&
-    chunk.file.endsWith(".jsonl")
-  );
+function validateCandidateIndex(value: unknown): value is { dataset_id: string; source_file_sha256: string; chunks: CandidateChunk[] } {
+  return isObject(value) &&
+    value.dataset_id === "kent-pdf-rubric-grade-candidate-index" &&
+    value.source_file_sha256 === "8f7ef6e5029dfb0bf9a05800f63e5e05043d39c74d5dd0df500a27484aecec6e" &&
+    Array.isArray(value.chunks) &&
+    value.chunks.every((chunk) =>
+      isObject(chunk) &&
+      typeof chunk.section_id === "string" &&
+      Number.isInteger(chunk.part) &&
+      Number.isInteger(chunk.candidate_count) &&
+      Number.isInteger(chunk.pdf_page_start) &&
+      Number.isInteger(chunk.pdf_page_end) &&
+      Number.isInteger(chunk.page_count) &&
+      (chunk.page_count as number) === (chunk.pdf_page_end as number) - (chunk.pdf_page_start as number) + 1 &&
+      typeof chunk.file === "string" &&
+      chunk.file.startsWith("grade-candidates/") &&
+      !chunk.file.includes("..") &&
+      chunk.file.endsWith(".jsonl")
+    );
 }
 
 function readSavedReviews(): Record<string, CandidateReview> {
