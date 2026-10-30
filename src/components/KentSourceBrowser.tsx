@@ -553,7 +553,7 @@ export default function KentSourceBrowser({
           {view === "candidates" && <>
             <div className="candidate-review-summary">
               <span>{candidateChunk?.candidate_count ?? 0} candidate occurrences in this source chunk</span>
-              <span>{currentReviewCounts.verified ?? 0} verified · {currentReviewCounts.uncertain ?? 0} uncertain · {currentReviewCounts.rejected ?? 0} rejected · {currentReviewCounts.pending ?? candidates.length - (currentReviewCounts.verified ?? 0) - (currentReviewCounts.uncertain ?? 0) - (currentReviewCounts.rejected ?? 0)} pending</span>
+              <span>{currentReviewCounts.verified ?? 0} verified · {currentReviewCounts.uncertain ?? 0} uncertain · {currentReviewCounts.rejected ?? 0} rejected · {currentReviewCounts.duplicate ?? 0} duplicate · {currentReviewCounts.pending ?? candidates.length - (currentReviewCounts.verified ?? 0) - (currentReviewCounts.uncertain ?? 0) - (currentReviewCounts.rejected ?? 0) - (currentReviewCounts.duplicate ?? 0)} pending</span>
             </div>
             <div className="candidate-review-summary">
               <span>{reviewedTotal} total saved decisions on this device</span>
