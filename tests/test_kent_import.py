@@ -109,7 +109,7 @@ class AbbreviationParserTests(unittest.TestCase):
             (root / "chunks" / "mind").mkdir(parents=True)
             (root / "structured").mkdir()
             index = {
-                "sections": [{"id": "mind", "internal_page_range": [1, 95]}],
+                "sections": [{"id": "mind", "pdf_page_start": 66, "pdf_page_end": 66, "internal_page_range": [1, 95]}],
                 "chunks": [{
                     "section_id": "mind", "part": 1,
                     "pdf_page_start": 66, "pdf_page_end": 66,
