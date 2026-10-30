@@ -21,6 +21,7 @@ def load_script(name: str, filename: str):
 PREPARE = load_script("prepare_kent_pdf", "prepare-kent-pdf.py")
 ABBREVIATIONS = load_script("parse_kent_abbreviations", "parse-kent-abbreviations.py")
 GRADE_CANDIDATES = load_script("parse_kent_grade_candidates", "parse-kent-grade-candidates.py")
+VERIFIED_BUILDER = load_script("build_verified_kent_database", "build-verified-kent-database.py")
 
 
 class SectionMapTests(unittest.TestCase):
@@ -149,6 +150,43 @@ class AbbreviationParserTests(unittest.TestCase):
         grade, evidence = GRADE_CANDIDATES.grade_evidence("PULS.", {"italic": False, "color": "#000000"})
         self.assertIsNone(grade)
         self.assertEqual(evidence, "uppercase_token_without_red_grade_style_review")
+
+    def test_verified_database_builder_withholds_conflicting_pairs(self):
+        import subprocess
+        import sys
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            abbreviation_file = root / "abbreviations.json"
+            review_file = root / "reviews.json"
+            output_file = root / "verified.json"
+            abbreviation_file.write_text(json.dumps({
+                "dataset_id": "kent-pdf-remedy-abbreviation-index",
+                "records": [{"abbreviation_as_printed": "Nat-m.", "full_name_as_printed": "Natrum Muriaticum"}]
+            }), encoding="utf-8")
+            source_hash = VERIFIED_BUILDER.SOURCE_SHA256
+            records = [
+                {"candidateId": "one", "remedyAbbreviation": "Nat-m.", "rubricText": "ABRUPT",
+                 "approvedGrade": 1, "sourcePdfPage": 66, "sourceChecked": True, "savedAt": "2026-10-30T00:00:00Z"},
+                {"candidateId": "two", "remedyAbbreviation": "Nat-m.", "rubricText": "ABRUPT",
+                 "approvedGrade": 2, "sourcePdfPage": 67, "sourceChecked": True, "savedAt": "2026-10-30T00:01:00Z"},
+                {"candidateId": "three", "remedyAbbreviation": "Nat-m.", "rubricText": "ABSENT-MINDED",
+                 "approvedGrade": 3, "sourcePdfPage": 66, "sourceChecked": True, "savedAt": "2026-10-30T00:02:00Z"},
+            ]
+            review_file.write_text(json.dumps({
+                "dataset_id": "curiva-kent-user-verified-review-decisions",
+                "source_file_sha256": source_hash, "records": records
+            }), encoding="utf-8")
+            script = ROOT / "scripts" / "build-verified-kent-database.py"
+            subprocess.run([
+                sys.executable, str(script), "--reviews", str(review_file),
+                "--abbreviations", str(abbreviation_file), "--out", str(output_file)
+            ], check=True, capture_output=True, text=True)
+            database = json.loads(output_file.read_text(encoding="utf-8"))
+            qc = json.loads(output_file.with_name("verified-qc.json").read_text(encoding="utf-8"))
+        self.assertEqual(database["rubric_count"], 1)
+        self.assertEqual(database["verified_grade_pair_count"], 1)
+        self.assertEqual(database["rubrics"][0]["text_as_entered_from_pdf"], "ABSENT-MINDED")
+        self.assertEqual(qc["grade_pairs_withheld_for_conflict"], 1)
 
 
 if __name__ == "__main__":
