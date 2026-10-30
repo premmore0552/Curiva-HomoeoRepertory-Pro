@@ -17,7 +17,6 @@ type RubricRow = {
 
 // No placeholder repertory data is bundled. Records will come only from the supplied PDF.
 const remedies: Remedy[] = [];
-const initialRows: RubricRow[] = [];
 const addableRubrics: RubricRow[] = [];
 
 const cloneRows = (rows: RubricRow[]) => rows.map((row) => ({ ...row, values: { ...row.values } }));
@@ -345,6 +344,7 @@ function App() {
         {page === 'materia' && <section className="page-card">
           <div className="page-heading"><div className="eyebrow">REFERENCE LIBRARY</div><h1>Materia Medica</h1><p>The PDF’s remedy abbreviation index (introductory PDF pages 10–18) will be parsed into this library. No external remedy entries are added.</p></div>
           <div className="remedy-library">{remedies.slice(0, 12).map((remedy) => <article className="remedy-card" key={remedy.id}><div className="remedy-avatar">{remedy.abbr.slice(0, 1)}</div><div><strong>{remedy.name}</strong><span>{remedy.abbr} · Author: {remedy.author}</span></div><span className="coming-label">Index preview</span></article>)}</div>
+          {!remedies.length && <div className="empty-library-note">No remedy records are loaded. The abbreviation table in your PDF will be imported first, preserving the printed abbreviation and full name exactly as shown.</div>}
         </section>}
 
         {page === 'cases' && <section className="page-card">
