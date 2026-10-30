@@ -78,6 +78,7 @@ class KentPhase2VerifiedDatabaseTests(unittest.TestCase):
             {"id": "three", "source_pdf_page": 68, "source_section_id": "mind", "matched_abbreviation_as_printed_in_index": "Nat-m.", "token_as_printed_in_rubric": "Nat-m.", "candidate_grade_from_source_key": 3, "grade_evidence": "red_uppercase_token_as_printed"},
             {"id": "four", "source_pdf_page": 69, "source_section_id": "mind", "matched_abbreviation_as_printed_in_index": "Nat-m.", "token_as_printed_in_rubric": "Nat-m.", "candidate_grade_from_source_key": None, "grade_evidence": "unrecognised_color_or_style_review"},
             {"id": "five", "source_pdf_page": 70, "source_section_id": "mind", "matched_abbreviation_as_printed_in_index": "Nat-m.", "token_as_printed_in_rubric": "Nat-m.", "candidate_grade_from_source_key": 1, "grade_evidence": "ordinary_black_layout_span"},
+            {"id": "six", "source_pdf_page": 71, "source_section_id": "mind", "matched_abbreviation_as_printed_in_index": "Nat-m.", "token_as_printed_in_rubric": "Nat-m.", "candidate_grade_from_source_key": 1, "grade_evidence": "ordinary_black_layout_span"},
         ]
         (structured / "grade-candidates" / "sample.jsonl").write_text(
             "".join(json.dumps(item) + "\n" for item in candidates), encoding="utf-8"
@@ -96,6 +97,7 @@ class KentPhase2VerifiedDatabaseTests(unittest.TestCase):
             {"candidateId": "three", "remedyAbbreviation": "Nat-m.", "rubricPath": ["MIND", "ABSENT-MINDED"], "approvedGrade": 3, "sourcePdfPage": 68, "sourceChecked": True, "reviewStatus": "verified", "savedAt": "2026-10-31T00:02:00Z"},
             {"candidateId": "four", "remedyAbbreviation": "Nat-m.", "sourcePdfPage": 69, "sourceChecked": True, "reviewStatus": "uncertain", "reviewNote": "Style not clear."},
             {"candidateId": "five", "remedyAbbreviation": "Nat-m.", "sourcePdfPage": 70, "sourceChecked": True, "reviewStatus": "rejected", "reviewNote": "Not a rubric remedy occurrence."},
+            {"candidateId": "six", "remedyAbbreviation": "Nat-m.", "sourcePdfPage": 71, "sourceChecked": True, "reviewStatus": "duplicate", "duplicateOfCandidateId": "three", "reviewNote": "Same printed occurrence duplicated in extraction."},
         ]
         reviews = {
             "dataset_id": "curiva-kent-user-verified-review-decisions",
@@ -123,6 +125,8 @@ class KentPhase2VerifiedDatabaseTests(unittest.TestCase):
         self.assertEqual(qc["grade_pairs_withheld_for_conflict"], 1)
         self.assertEqual(qc["rejected_decisions"], 1)
         self.assertEqual(qc["uncertain_decisions"], 1)
+        self.assertEqual(qc["confirmed_duplicate_decisions"], 1)
+        self.assertEqual(qc["duplicate_decisions"][0]["duplicate_of_candidate_id"], "three")
         leaf = next(item for item in database["rubrics"] if item["text_as_entered_from_pdf"] == "ABSENT-MINDED")
         self.assertEqual(leaf["parent_rubric_id"], next(item["id"] for item in database["rubrics"] if item["text_as_entered_from_pdf"] == "MIND"))
         self.assertEqual(leaf["grades"][0]["grade"], 3)
