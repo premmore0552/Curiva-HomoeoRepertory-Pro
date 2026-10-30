@@ -1,0 +1,17 @@
+{
+  "name": "Curiva HomoeoRepertory Pro",
+  "short_name": "Curiva Repertory",
+  "description": "Standalone repertory study and case-analysis workspace.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f9fc",
+  "theme_color": "#f7f9fc",
+  "icons": [
+    {
+      "src": "/curiva-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
