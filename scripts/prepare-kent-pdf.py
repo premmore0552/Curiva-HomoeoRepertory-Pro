@@ -143,6 +143,9 @@ def main() -> None:
                 part += 1
 
         xml_pages = 0
+        # pdftohtml may define a font only once and reuse its ID on later pages.
+        # Keep a document-wide map; resetting per page loses italic/color grade evidence.
+        font_map = {}
         for _, page in ET.iterparse(xml_path, events=("end",)):
             if page.tag != "page":
                 continue
@@ -152,9 +155,8 @@ def main() -> None:
                 continue
             xml_pages += 1
             sid, title = section_for_page[page_no]
-            fonts = {}
             for fs in page.findall("fontspec"):
-                fonts[fs.attrib.get("id", "")] = {
+                font_map[fs.attrib.get("id", "")] = {
                     "family": fs.attrib.get("family", ""),
                     "size": fs.attrib.get("size", ""),
                     "color": fs.attrib.get("color", "#000000"),
@@ -164,7 +166,7 @@ def main() -> None:
                 value = node_text(node)
                 if not value:
                     continue
-                font = fonts.get(node.attrib.get("font", ""), {})
+                font = font_map.get(node.attrib.get("font", ""), {})
                 bold = any(child.tag == "b" for child in node.iter())
                 italic = any(child.tag == "i" for child in node.iter())
                 links = [child.attrib["href"] for child in node.iter() if child.tag == "a" and "href" in child.attrib]
