@@ -122,12 +122,16 @@ def main() -> None:
         chunk_map = []
         writers = {}
         for sid, title, start, end, internal_range in SECTIONS:
+            if start < 1 or end > page_count or start > end:
+                parser.error("Invalid section range for " + sid + ": " + str(start) + "–" + str(end))
             section_meta.append({
                 "id": sid, "title": title, "pdf_page_start": start, "pdf_page_end": end,
                 "page_count": end - start + 1, "internal_page_range": internal_range,
                 "subsections": URINARY_CHILDREN if sid == "urinary-organs" else [],
             })
             for page_no in range(start, end + 1):
+                if page_no in section_for_page:
+                    parser.error("Overlapping source section mapping at PDF page " + str(page_no))
                 section_for_page[page_no] = (sid, title)
             part = 1
             for first in range(start, end + 1, CHUNK_PAGES):
@@ -201,6 +205,8 @@ def main() -> None:
             page.clear()
         for writer in writers.values():
             writer.close()
+        if xml_pages != page_count:
+            parser.error("Layout extraction page count mismatch: processed " + str(xml_pages) + ", expected " + str(page_count))
 
     lengths = [len(value.strip()) for value in raw_pages]
     under_15 = [i + 1 for i, value in enumerate(lengths) if value < 15]
@@ -291,10 +297,20 @@ This is a raw source staging pack, not verified structured rubric/remedy/grade d
 """
     (out / "README.md").write_text(readme, encoding="utf-8")
     zip_path.parent.mkdir(parents=True, exist_ok=True)
+    # Archive only this run's declared outputs. This prevents stale files from an older
+    # extraction in a reused output directory from silently entering the ZIP.
+    generated_files = [
+        out / "source-metadata.json",
+        out / "section-index.json",
+        out / "QC_REPORT.md",
+        out / "README.md",
+        *sorted((out / "chunks").rglob("*.jsonl")),
+    ]
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
-        for file in sorted(out.rglob("*")):
-            if file.is_file():
-                archive.write(file, Path("kent-source-chunks") / file.relative_to(out))
+        for file in generated_files:
+            if not file.is_file():
+                parser.error("Expected generated source file is missing: " + str(file))
+            archive.write(file, Path("kent-source-chunks") / file.relative_to(out))
     print("Created " + str(zip_path) + " with " + str(len(chunk_map)) + " chunks from " + str(page_count) + " PDF pages.")
 
 if __name__ == "__main__":
