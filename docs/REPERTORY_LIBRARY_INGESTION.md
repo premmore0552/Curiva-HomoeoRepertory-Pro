@@ -30,14 +30,15 @@ The TypeScript contracts live in `src/data/library-schema.ts`:
 
 Records that fail validation or have uncertain provenance remain quarantined. A batch must report accepted, rejected and flagged counts.
 
-## First source candidate
+## Active source: the user's uploaded PDF
 
-Kent's *Repertory of the Homoeopathic Materia Medica* (1897), Volume 1, Wellcome Collection / Internet Archive scan, item `b20416234_001`, is a candidate source already examined during the earlier website experiment.
+The current source is the file supplied in this conversation, **J.T. Kent s Repertory.pdf**. The importer checks for 2,834 physical PDF pages and preserves the PDF's embedded selectable text and page layout. The internal repertory page numbers are a separate numbering system.
 
-- Scope must remain explicitly **Volume 1** unless Volume 2 is separately sourced.
-- Preserve Wellcome / Internet Archive attribution and confirm the applicable rights statement for the exact scan before redistribution.
-- OCR previously extracted from this scan is not yet imported into this app repository.
-- The old website branch's OCR output and curated rubric data are not assumed to be complete or verified app data.
+- The uploaded file itself displays a 1998 MEDI-T copyright notice.
+- Its precise edition, publication history, and redistribution permission are not established by the PDF alone.
+- Do not substitute OCR or curated data from the separate Curiva Homoeopathy website project.
+- The importer creates a local staging package; the package is not committed to this public repository.
+- The supplied PDF's own page 36 states the grade key: capitals = 3, italics = 2, ordinary = 1. Keep this as source evidence, not an excuse to assign grades to text that has not been identified as a rubric remedy.
 
 ## Next implementation stages
 
