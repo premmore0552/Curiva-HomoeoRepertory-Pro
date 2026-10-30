@@ -9,3 +9,6 @@ dist/
 # Source-derived book data stays local until redistribution rights are confirmed.
 public/data/kent/
 kent-source-chunks/
+
+__pycache__/
+*.py[cod]
