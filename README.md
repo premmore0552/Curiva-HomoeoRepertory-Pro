@@ -12,10 +12,10 @@ The visual identity, icons, data, and code are original to Curiva. The reference
 
 - Responsive React + TypeScript + Vite application.
 - Home, Repertory, Materia Medica, Cases, and Shop navigation.
-- Interactive repertorization matrix with selectable rubrics, A/B/C/D case sets, undo/redo, grade visibility, sorting, elimination filter, author filter, and CSV export.
+- Repertorization workspace shell with A/B/C/D case tabs, undo/redo controls, grade visibility, sorting/filter controls, and CSV export. Rubric selection and remedy comparison remain inactive until verified source records are installed.
 - No demo rubrics, remedy-grade relationships, or fabricated remedies are bundled. The repertorization matrix remains empty until source-derived records are imported and reviewed.
 - The Kent chapter directory is source-indexed. The searchable remedy abbreviation table and page-by-page source browser require the local PDF-derived data package to be installed; they are not shipped in this public repository.
-- Installable PWA shell for Android Chrome and desktop browsers.
+- Installable PWA shell for Android Chrome and desktop browsers. Source chunks are generated locally and are not bundled into the public repository.
 
 ## Run locally
 
