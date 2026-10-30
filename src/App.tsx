@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { kentSourceCatalog } from './data/kent-source-catalog';
 import KentSourceBrowser from './components/KentSourceBrowser';
+import KentAbbreviationReview from './components/KentAbbreviationReview';
 import type { KentRemedyAbbreviationRecord } from './data/kent-remedy-index';
 import { KentSourceDataNotInstalledError, loadKentRemedyAbbreviationIndex } from './lib/kentRemedyIndexLoader';
 import type { VerifiedKentDatabase } from './data/verified-kent-database';
@@ -472,10 +473,15 @@ function App() {
           </div>
           <div className="rubric-search-box remedy-index-search"><Search size={16} /><input aria-label="Search remedy abbreviation or name" value={remedyQuery} onChange={(event) => setRemedyQuery(event.target.value)} placeholder="Search printed abbreviation or full name..." /></div>
           {remedyIndexStatus === 'loading' && <div className="empty-library-note">Loading the local Kent abbreviation index…</div>}
-          {remedyIndexStatus === 'missing' && <div className="empty-library-note"><strong>Source data file not installed.</strong><p>Copy the PDF-derived remedy-abbreviations.json file to public/data/kent/remedy-abbreviations.json. It is included in the source-chunks ZIP under structured/.</p></div>}
+          {remedyIndexStatus === 'missing' && <div className="empty-library-note"><strong>Source data file not installed.</strong><p>Copy the PDF-derived remedy-abbreviations.json file to public/data/kent/structured/remedy-abbreviations.json. It is included in the source-chunks ZIP under structured/.</p></div>}
           {remedyIndexStatus === 'error' && <div className="empty-library-note"><strong>Source index could not be loaded.</strong><p>{remedyIndexError}</p></div>}
           {remedyIndexStatus === 'loaded' && <>
             <div className="remedy-index-summary">{filteredRemedyIndex.length} of {remedyIndex.length} printed abbreviation records · source PDF pages 10–18</div>
+            <details className="source-style-details">
+              <summary>Proofread the 650 source abbreviation entries</summary>
+              <p className="source-style-legend">Each entry must be checked against the original PDF page. This local review does not silently correct or approve any transcription.</p>
+              <KentAbbreviationReview records={remedyIndex} />
+            </details>
             <div className="remedy-library">
               {filteredRemedyIndex.map((record) => (
                 <article className="remedy-card" key={record.id}>
