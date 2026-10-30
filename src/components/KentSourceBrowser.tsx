@@ -46,7 +46,7 @@ type CandidateRecord = {
   source_section_id: string;
   line_text_as_extracted: string;
   token_as_printed_in_rubric: string;
-  matched_abbreviation_as_printed_in_index_in_index: string;
+  matched_abbreviation_as_printed_in_index: string;
   candidate_grade_from_source_key: number | null;
   grade_evidence: string;
   suggested_rubric_context?: string | null;
@@ -113,7 +113,7 @@ function validateCandidate(value: unknown): value is CandidateRecord {
     typeof value.source_section_id === "string" &&
     typeof value.line_text_as_extracted === "string" &&
     typeof value.token_as_printed_in_rubric === "string" &&
-    typeof value.matched_abbreviation_as_printed_in_index_in_index === "string" &&
+    typeof value.matched_abbreviation_as_printed_in_index === "string" &&
     (value.candidate_grade_from_source_key === null ||
       (Number.isInteger(value.candidate_grade_from_source_key) &&
         [1, 2, 3].includes(value.candidate_grade_from_source_key as number))) &&
@@ -236,7 +236,7 @@ function CandidateReviewCard({
           disabled={!rubric.trim() || !grade || !sourceChecked}
           onClick={() => onSave({
             candidateId: candidate.id,
-            remedyAbbreviation: candidate.matched_abbreviation_as_printed_in_index_in_index,
+            remedyAbbreviation: candidate.matched_abbreviation_as_printed_in_index,
             rubricText: rubric.trim(),
             approvedGrade: grade as number,
             sourcePdfPage: candidate.source_pdf_page,
