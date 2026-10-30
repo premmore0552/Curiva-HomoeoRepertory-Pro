@@ -120,9 +120,9 @@ class AbbreviationParserTests(unittest.TestCase):
             page = {
                 "pdf_page": 66, "section_id": "mind",
                 "text_items": [
-                    {"text": "Nat-m., ", "top": 206, "left": 183, "italic": False},
-                    {"text": "tarent. ", "top": 204, "left": 256, "italic": True},
-                    {"text": "APIS.", "top": 204, "left": 322, "italic": False, "bold": True}
+                    {"text": "Nat-m., ", "top": 206, "left": 183, "italic": False, "color": "#000000"},
+                    {"text": "tarent. ", "top": 204, "left": 256, "italic": True, "color": "#0070c0"},
+                    {"text": "APIS.", "top": 204, "left": 322, "italic": False, "bold": True, "color": "#ff0000"}
                 ]
             }
             (root / "chunks" / "mind" / "mind-001.jsonl").write_text(json.dumps(page) + "\n", encoding="utf-8")
@@ -144,6 +144,11 @@ class AbbreviationParserTests(unittest.TestCase):
         self.assertEqual([item["verification_status"] for item in candidates], ["needs_review"] * 3)
         self.assertTrue(all(item["rubric_assignment"] == "unassigned" for item in candidates))
         self.assertEqual(qc["records_verified"], 0)
+
+    def test_black_uppercase_does_not_get_an_automatic_grade_three(self):
+        grade, evidence = GRADE_CANDIDATES.grade_evidence("PULS.", {"italic": False, "color": "#000000"})
+        self.assertIsNone(grade)
+        self.assertEqual(evidence, "uppercase_token_without_red_grade_style_review")
 
 
 if __name__ == "__main__":
