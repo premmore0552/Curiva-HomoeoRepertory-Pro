@@ -65,13 +65,18 @@ type CandidateRecord = {
   verification_status: "needs_review";
 };
 
+type ReviewStatus = "verified" | "rejected" | "uncertain";
+
 type CandidateReview = {
   candidateId: string;
   remedyAbbreviation: string;
   rubricText: string;
-  approvedGrade: number;
+  rubricPath: string[];
+  approvedGrade: number | null;
   sourcePdfPage: number;
-  sourceChecked: true;
+  sourceChecked: boolean;
+  reviewStatus: ReviewStatus;
+  reviewNote?: string;
   savedAt: string;
 };
 
@@ -185,16 +190,33 @@ function CandidateReviewCard({
     saved?.approvedGrade ?? candidate.candidate_grade_from_source_key ?? "",
   );
   const [sourceChecked, setSourceChecked] = useState(saved?.sourceChecked ?? false);
+  const [reviewStatus, setReviewStatus] = useState<ReviewStatus>(saved?.reviewStatus ?? "verified");
+  const [reviewNote, setReviewNote] = useState(saved?.reviewNote ?? "");
 
   useEffect(() => {
     setRubric(saved?.rubricText ?? candidate.suggested_rubric_context ?? "");
     setGrade(saved?.approvedGrade ?? candidate.candidate_grade_from_source_key ?? "");
     setSourceChecked(saved?.sourceChecked ?? false);
+    setReviewStatus(saved?.reviewStatus ?? "verified");
+    setReviewNote(saved?.reviewNote ?? "");
   }, [candidate.id, saved]);
 
   const gradeLabel = candidate.candidate_grade_from_source_key === null
     ? "Unclear style"
     : "Grade " + candidate.candidate_grade_from_source_key + " candidate";
+  const rubricPath = rubric.split(/\\s*\\/\\s*/).map((part) => part.trim()).filter(Boolean);
+  const saveDecision = (status: ReviewStatus) => onSave({
+    candidateId: candidate.id,
+    remedyAbbreviation: candidate.matched_abbreviation_as_printed_in_index,
+    rubricText: rubricPath.join(" / "),
+    rubricPath,
+    approvedGrade: grade === "" ? null : grade,
+    sourcePdfPage: candidate.source_pdf_page,
+    sourceChecked,
+    reviewStatus: status,
+    reviewNote: reviewNote.trim(),
+    savedAt: new Date().toISOString(),
+  });
 
   return (
     <article className={saved ? "candidate-review-card candidate-reviewed" : "candidate-review-card"}>
@@ -203,20 +225,20 @@ function CandidateReviewCard({
           <strong>{candidate.matched_abbreviation_as_printed_in_index}</strong>
           <span>PDF page {candidate.source_pdf_page} · {gradeLabel}</span>
         </div>
-        {saved ? <span className="candidate-reviewed-label"><CheckCircle2 size={13} /> Reviewed locally</span> :
-          <span className="candidate-pending-label">Needs review</span>}
+        {saved ? <span className="candidate-reviewed-label"><CheckCircle2 size={13} /> {saved.reviewStatus ?? "verified"} · saved locally</span> :
+          <span className="candidate-pending-label">Pending review</span>}
       </div>
       <p className="candidate-source-line">{candidate.line_text_as_extracted || candidate.source_span.text}</p>
       <a className="candidate-open-source" href={"/data/kent/source.pdf#page=" + candidate.source_pdf_page} target="_blank" rel="noreferrer">Open original PDF · page {candidate.source_pdf_page}</a>
-      {candidate.suggested_rubric_context && <div className="candidate-context-hint">Suggested from source heading/line layout · {candidate.suggested_context_method?.replace(/_/g, " ")}</div>}
+      {candidate.suggested_rubric_context && <div className="candidate-context-hint">Navigation suggestion only — confirm the complete hierarchy from the PDF · {candidate.suggested_context_method?.replace(/_/g, " ")}</div>}
       <div className="candidate-style-evidence">
         Source token: <strong>{candidate.token_as_printed_in_rubric}</strong>
         <span>{candidate.grade_evidence.replace(/_/g, " ")}</span>
         <small>{candidate.source_span.color} · {candidate.source_span.font_family}{candidate.source_span.italic ? " · italic" : ""}</small>
       </div>
       <label className="candidate-rubric-field">
-        Suggested rubric path — confirm or correct against the PDF
-        <input value={rubric} onChange={(event) => setRubric(event.target.value)} placeholder="Enter rubric and parent path from source…" />
+        Complete rubric path, from chapter to exact child rubric (separate levels with /)
+        <input value={rubric} onChange={(event) => setRubric(event.target.value)} placeholder="MIND / ABSENT-MINDED / morning" />
       </label>
       <div className="candidate-review-actions">
         <label className="candidate-grade-field">
@@ -232,21 +254,17 @@ function CandidateReviewCard({
           <input type="checkbox" checked={sourceChecked} onChange={(event) => setSourceChecked(event.target.checked)} />
           I checked the original PDF page
         </label>
-        <button
-          className="candidate-save-button"
-          disabled={!rubric.trim() || !grade || !sourceChecked}
-          onClick={() => onSave({
-            candidateId: candidate.id,
-            remedyAbbreviation: candidate.matched_abbreviation_as_printed_in_index,
-            rubricText: rubric.trim(),
-            approvedGrade: grade as number,
-            sourcePdfPage: candidate.source_pdf_page,
-            sourceChecked: true,
-            savedAt: new Date().toISOString(),
-          })}
-        >
-          {saved ? "Update review" : "Save verified record"}
+      </div>
+      <label className="candidate-rubric-field">
+        Review note (required when overriding the suggested grade)
+        <input value={reviewNote} onChange={(event) => setReviewNote(event.target.value)} placeholder="Explain ambiguity, correction or rejection…" />
+      </label>
+      <div className="candidate-review-actions">
+        <button className="candidate-save-button" disabled={!rubricPath.length || !grade || !sourceChecked} onClick={() => saveDecision("verified")}>
+          {saved?.reviewStatus === "verified" ? "Update verified record" : "Verify source record"}
         </button>
+        <button className="secondary-button" disabled={!sourceChecked} onClick={() => saveDecision("uncertain")}>Mark uncertain</button>
+        <button className="secondary-button" disabled={!sourceChecked} onClick={() => saveDecision("rejected")}>Reject candidate</button>
       </div>
     </article>
   );
@@ -269,6 +287,7 @@ export default function KentSourceBrowser({
   const [selectedPageNumber, setSelectedPageNumber] = useState<number | null>(null);
   const [query, setQuery] = useState("");
   const [candidateQuery, setCandidateQuery] = useState("");
+  const [candidateStatusFilter, setCandidateStatusFilter] = useState<"pending" | "verified" | "uncertain" | "rejected" | "all">("pending");
   const [candidateLimit, setCandidateLimit] = useState(50);
   const [view, setView] = useState<"source" | "candidates">("source");
   const [loadingIndex, setLoadingIndex] = useState(true);
@@ -402,12 +421,16 @@ export default function KentSourceBrowser({
 
   const candidateMatches = useMemo(() => {
     const term = candidateQuery.trim().toLocaleLowerCase();
-    if (!term) return candidates;
-    return candidates.filter((candidate) =>
-      candidate.token_as_printed_in_rubric.toLocaleLowerCase().includes(term) ||
-      candidate.line_text_as_extracted.toLocaleLowerCase().includes(term)
-    );
-  }, [candidates, candidateQuery]);
+    return candidates.filter((candidate) => {
+      const saved = reviews[candidate.id];
+      const status = saved?.reviewStatus ?? (saved?.sourceChecked ? "verified" : "pending");
+      const statusMatch = candidateStatusFilter === "all" || status === candidateStatusFilter;
+      const textMatch = !term ||
+        candidate.token_as_printed_in_rubric.toLocaleLowerCase().includes(term) ||
+        candidate.line_text_as_extracted.toLocaleLowerCase().includes(term);
+      return statusMatch && textMatch;
+    });
+  }, [candidates, candidateQuery, candidateStatusFilter, reviews]);
 
   const selectedPage = pages.find((page) => page.pdf_page === selectedPageNumber) ?? null;
 
@@ -438,8 +461,18 @@ export default function KentSourceBrowser({
     URL.revokeObjectURL(url);
   };
 
-  const candidateCountReviewed = candidates.filter((candidate) => reviews[candidate.id]).length;
+  const currentReviewCounts = candidates.reduce((counts, candidate) => {
+    const saved = reviews[candidate.id];
+    const status = saved?.reviewStatus ?? (saved?.sourceChecked ? "verified" : "pending");
+    counts[status] = (counts[status] ?? 0) + 1;
+    return counts;
+  }, {} as Record<string, number>);
   const reviewedTotal = Object.keys(reviews).length;
+  const globalReviewCounts = Object.values(reviews).reduce((counts, review) => {
+    const status = review.reviewStatus ?? (review.sourceChecked ? "verified" : "uncertain");
+    counts[status] = (counts[status] ?? 0) + 1;
+    return counts;
+  }, {} as Record<string, number>);
 
   return (
     <section className="kent-source-browser">
@@ -510,10 +543,24 @@ export default function KentSourceBrowser({
 
           {view === "candidates" && <>
             <div className="candidate-review-summary">
-              <span>{candidateChunk?.candidate_count ?? 0} candidate occurrences in this 25-page chunk</span>
-              <span>{candidateCountReviewed} reviewed here · {reviewedTotal} saved on this device</span>
+              <span>{candidateChunk?.candidate_count ?? 0} candidate occurrences in this source chunk</span>
+              <span>{currentReviewCounts.verified ?? 0} verified · {currentReviewCounts.uncertain ?? 0} uncertain · {currentReviewCounts.rejected ?? 0} rejected · {currentReviewCounts.pending ?? candidates.length - (currentReviewCounts.verified ?? 0) - (currentReviewCounts.uncertain ?? 0) - (currentReviewCounts.rejected ?? 0)} pending</span>
+            </div>
+            <div className="candidate-review-summary">
+              <span>{reviewedTotal} total saved decisions on this device</span>
+              <span>{globalReviewCounts.verified ?? 0} verified · {globalReviewCounts.uncertain ?? 0} uncertain · {globalReviewCounts.rejected ?? 0} rejected</span>
             </div>
             <div className="rubric-search-box kent-source-search"><Search size={16} /><input aria-label="Search grade candidates" value={candidateQuery} onChange={(event) => setCandidateQuery(event.target.value)} placeholder="Search remedy abbreviation or source line…" /></div>
+            <label className="candidate-grade-field">
+              Show decisions
+              <select value={candidateStatusFilter} onChange={(event) => { setCandidateStatusFilter(event.target.value as typeof candidateStatusFilter); setCandidateLimit(50); }}>
+                <option value="pending">Pending review</option>
+                <option value="verified">Verified</option>
+                <option value="uncertain">Uncertain</option>
+                <option value="rejected">Rejected</option>
+                <option value="all">All candidates</option>
+              </select>
+            </label>
             {loadingCandidates && <div className="empty-library-note"><LoaderCircle className="inline-spin" size={15} /> Loading candidate records…</div>}
             {candidateError && <div className="empty-library-note source-load-error"><strong>Candidate review unavailable.</strong><p>{candidateError}</p></div>}
             {!loadingCandidates && !candidateError && <>
