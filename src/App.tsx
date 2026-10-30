@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { kentSourceCatalog } from './data/kent-source-catalog';
 import KentSourceBrowser from './components/KentSourceBrowser';
+import KentAbbreviationReview from './components/KentAbbreviationReview';
 import type { KentRemedyAbbreviationRecord } from './data/kent-remedy-index';
 import { KentSourceDataNotInstalledError, loadKentRemedyAbbreviationIndex } from './lib/kentRemedyIndexLoader';
 import type { VerifiedKentDatabase } from './data/verified-kent-database';
@@ -125,12 +126,14 @@ function App() {
     author: 'Kent',
   })) ?? [], [verifiedDatabase]);
 
-  const addableRubrics = useMemo<RubricRow[]>(() => verifiedDatabase?.rubrics.map((rubric) => ({
-    id: rubric.id,
-    path: rubric.text_as_entered_from_pdf,
-    source: 'Kent PDF · pp. ' + [...new Set(rubric.grades.flatMap((grade) => grade.source_pdf_pages))].sort((a, b) => a - b).join(', '),
-    values: Object.fromEntries(rubric.grades.map((grade) => [grade.remedy_id, grade.grade])),
-  })) ?? [], [verifiedDatabase]);
+  const addableRubrics = useMemo<RubricRow[]>(() => verifiedDatabase?.rubrics
+    .filter((rubric) => rubric.grades.length > 0)
+    .map((rubric) => ({
+      id: rubric.id,
+      path: rubric.path_as_entered_from_pdf.join(' / '),
+      source: 'Kent PDF · pp. ' + rubric.source_pdf_pages.join(', '),
+      values: Object.fromEntries(rubric.grades.map((grade) => [grade.remedy_id, grade.grade])),
+    })) ?? [], [verifiedDatabase]);
 
   useEffect(() => {
     if (page !== 'materia') return;
@@ -472,10 +475,18 @@ function App() {
           </div>
           <div className="rubric-search-box remedy-index-search"><Search size={16} /><input aria-label="Search remedy abbreviation or name" value={remedyQuery} onChange={(event) => setRemedyQuery(event.target.value)} placeholder="Search printed abbreviation or full name..." /></div>
           {remedyIndexStatus === 'loading' && <div className="empty-library-note">Loading the local Kent abbreviation index…</div>}
-          {remedyIndexStatus === 'missing' && <div className="empty-library-note"><strong>Source data file not installed.</strong><p>Copy the PDF-derived remedy-abbreviations.json file to public/data/kent/remedy-abbreviations.json. It is included in the source-chunks ZIP under structured/.</p></div>}
+          {remedyIndexStatus === 'missing' && <div className="empty-library-note"><strong>Source data file not installed.</strong><p>Copy the PDF-derived remedy-abbreviations.json file to public/data/kent/structured/remedy-abbreviations.json. It is included in the source-chunks ZIP under structured/.</p></div>}
           {remedyIndexStatus === 'error' && <div className="empty-library-note"><strong>Source index could not be loaded.</strong><p>{remedyIndexError}</p></div>}
           {remedyIndexStatus === 'loaded' && <>
-            <div className="remedy-index-summary">{filteredRemedyIndex.length} of {remedyIndex.length} printed abbreviation records · source PDF pages 10–18</div>
+            <div className="remedy-index-summary">
+              {filteredRemedyIndex.length} of {remedyIndex.length} printed abbreviation records · source PDF pages 10–18
+              <span>{remedyIndex.filter((item) => item.verification_status === "verified").length} proofread · {remedyIndex.filter((item) => item.verification_status !== "verified").length} awaiting proofreading</span>
+            </div>
+            <details className="source-style-details">
+              <summary>Proofread the 650 source abbreviation entries</summary>
+              <p className="source-style-legend">Each entry must be checked against the original PDF page. This local review does not silently correct or approve any transcription.</p>
+              <KentAbbreviationReview records={remedyIndex} />
+            </details>
             <div className="remedy-library">
               {filteredRemedyIndex.map((record) => (
                 <article className="remedy-card" key={record.id}>
@@ -485,7 +496,7 @@ function App() {
                     <span>{record.full_name_as_printed}</span>
                     <small>PDF page {record.source_pdf_page}{record.source_pdf_pages.length > 1 ? ' · continues on page ' + record.source_pdf_pages[1] : ''}</small>
                   </div>
-                  <span className="coming-label">PDF transcription</span>
+                  <span className="coming-label">{record.verification_status === "verified" ? "Source checked" : "Transcription not proofread"}</span>
                 </article>
               ))}
               {!filteredRemedyIndex.length && <div className="empty-library-note">No source entry matches that search.</div>}

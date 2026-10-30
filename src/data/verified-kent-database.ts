@@ -4,15 +4,22 @@ export interface VerifiedKentGradePair {
   source_pdf_pages: number[];
   source_candidate_ids: string[];
   reviewed_at: string[];
+  grade_evidence_in_candidate: string[];
+  review_notes?: string[];
   verification_status: "user_verified_source_checked";
 }
 
 export interface VerifiedKentRubric {
   id: string;
+  chapter_id: string;
+  parent_rubric_id: string | null;
+  depth: number;
   text_as_entered_from_pdf: string;
+  path_as_entered_from_pdf: string[];
+  source_pdf_pages: number[];
   source_id: "kent-uploaded-pdf";
   grades: VerifiedKentGradePair[];
-  verification_status: "user_verified_source_checked";
+  verification_status: "user_verified_source_checked" | "path_derived_from_verified_child_review";
 }
 
 export interface VerifiedKentRemedy {
@@ -20,6 +27,7 @@ export interface VerifiedKentRemedy {
   abbreviation_as_printed: string;
   full_name_as_printed_in_pdf_index: string;
   source_id: "kent-uploaded-pdf";
+  abbreviation_verification_status: "verified";
 }
 
 export interface VerifiedKentDatabase {
@@ -36,6 +44,7 @@ export interface VerifiedKentDatabase {
     generated_rubrics: 0;
     generated_remedies: 0;
     automatic_grade_verification: false;
+    hierarchy_method: string;
     note: string;
   };
   rubric_count: number;

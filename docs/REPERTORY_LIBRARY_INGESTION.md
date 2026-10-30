@@ -47,10 +47,22 @@ The current source is the file supplied in this conversation, **J.T. Kent s Repe
 3. PDF-derived chapter directory and searchable remedy abbreviation index.
 4. Lazy source-page browser with a direct link to the original PDF page.
 5. Source-matched remedy-token/grade candidates, per-chapter chunk files, typography evidence, suggested rubric context and QC reports.
-6. Candidate review UI: manual rubric path, grade selection, source-page confirmation, local review storage and JSON export.
-7. Verified-database builder that checks the uploaded PDF fingerprint, abbreviation membership, grade range, source check and conflicting pairs.
-8. App loader and repertorization matrix connection for manually reviewed records.
+6. Candidate review UI: full rubric path, grade selection, source-page confirmation, review dispositions and IndexedDB-backed JSON export.
+7. Verified-database builder that checks the PDF fingerprint, exact candidate IDs/pages, proofread abbreviation-index fingerprint, grade range, reviewer-entered hierarchy, duplicate dispositions and conflicting pairs.
+8. App loader and repertorization matrix connection for manually reviewed records, showing the complete rubric path and suppressing empty parent-only rows.
 9. Regression tests for chapter coverage, chunk sizing, abbreviation continuations, source style grading and conflict handling.
+
+## Phase 2 verification tooling now implemented
+
+- Source-page proofreading queue for the PDF's 650 transcribed remedy abbreviations, with exact printed abbreviation/full-name fields and verified, uncertain or rejected decisions.
+- Abbreviation-index builder that publishes only records explicitly marked verified after a source-page check and preserves the original parser transcription for audit.
+- Candidate regeneration bound to the SHA-256 of the exact proofread abbreviation index.
+- Candidate audit for stable IDs, source abbreviation membership, style-evidence mapping, candidate/chunk counts and possible repeated source occurrences. Repeated-occurrence flags never delete records.
+- Candidate review supports verified, rejected, uncertain and confirmed-duplicate dispositions; verified review requires exact reviewer-entered chapter-to-rubric path, source page check and grade. Grade overrides require a note.
+- Verified database builder checks that every candidate ID and page exists in the source candidate data and that candidate chunks were generated from the exact proofread abbreviation index. It withholds conflicting grade pairs and builds parent-child nodes only from explicit reviewer-entered path segments.
+- Candidate review history is stored in IndexedDB, with migration from the earlier localStorage review map and JSON export/import through the existing export workflow.
+
+These are verification tools, not automatic source verification. The software does not claim to have reviewed all 650 abbreviation entries or all 433,541 candidate occurrences on a person's behalf.
 
 ## Remaining human validation before the repertory can be called complete
 
@@ -71,5 +83,5 @@ These are intentionally not automated to completion: assigning rubric parents or
 - Positive page references within source pagination
 - No silently merged remedy abbreviations
 - Duplicate detection report
-- Source license and attribution present
+- Source provenance and attribution fields present
 - Verification state explicitly set

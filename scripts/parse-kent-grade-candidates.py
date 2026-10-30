@@ -9,6 +9,7 @@ the source importer.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 from collections import Counter
@@ -21,14 +22,33 @@ TOKEN = re.compile(
 )
 
 
-def load_abbreviation_map(path: Path) -> dict[str, str]:
+def load_abbreviation_map(
+    path: Path,
+    require_verified: bool = False,
+    expected_source_sha256: str | None = None,
+) -> dict[str, str]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if payload.get("dataset_id") != "kent-pdf-remedy-abbreviation-index":
         raise ValueError("The abbreviation source is not the expected PDF-derived index.")
     if payload.get("duplicate_abbreviation_count") != 0:
         raise ValueError("The abbreviation index contains duplicate printed abbreviations.")
+    if require_verified:
+        proofreading = payload.get("proofreading")
+        if (
+            payload.get("source_file_sha256") != expected_source_sha256
+            or not isinstance(proofreading, dict)
+            or proofreading.get("status") not in {"partial", "complete"}
+            or proofreading.get("verified_record_count") != len(payload.get("records", []))
+        ):
+            raise ValueError("The supplied abbreviation index is not a matching source-proofread index.")
     result: dict[str, str] = {}
     for record in payload.get("records", []):
+        if require_verified and (
+            record.get("verification_status") != "verified"
+            or not isinstance(record.get("full_name_as_printed"), str)
+            or not record.get("full_name_as_printed").strip()
+        ):
+            raise ValueError("The proofread abbreviation index contains a non-verified or incomplete record.")
         abbreviation = record.get("abbreviation_as_printed")
         if not isinstance(abbreviation, str) or not abbreviation:
             raise ValueError("An abbreviation record has no printed abbreviation.")
@@ -219,6 +239,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Extract lazy source-grade candidate chunks from the supplied PDF.")
     parser.add_argument("--source", type=Path, default=Path("kent-source-chunks"))
     parser.add_argument("--abbreviations", type=Path, default=None)
+    parser.add_argument("--require-verified-abbreviations", action="store_true", help="Refuse unproofread abbreviation entries")
     parser.add_argument("--out-dir", type=Path, default=None)
     args = parser.parse_args()
 
@@ -229,7 +250,14 @@ def main() -> None:
     if not index_path.is_file():
         parser.error("Missing section-index.json in source package.")
     section_index = json.loads(index_path.read_text(encoding="utf-8"))
-    abbreviations = load_abbreviation_map(abbreviation_path)
+    metadata_path = source / "source-metadata.json"
+    source_hash = json.loads(metadata_path.read_text(encoding="utf-8")).get("source_sha256") if metadata_path.is_file() else None
+    abbreviations = load_abbreviation_map(
+        abbreviation_path,
+        require_verified=args.require_verified_abbreviations,
+        expected_source_sha256=source_hash,
+    )
+    abbreviation_index_sha256 = hashlib.sha256(abbreviation_path.read_bytes()).hexdigest()
 
     total_pages = 0
     total_candidates = 0
@@ -238,6 +266,9 @@ def main() -> None:
     grade_counts: Counter[str] = Counter()
     chapter_counts: Counter[str] = Counter()
     chunk_index: list[dict] = []
+    # Keep rubric-heading context separate for each chapter while carrying it
+    # across the small source chunks that belong to that chapter.
+    context_by_chapter: dict[str, dict[str, str]] = {}
 
     for chunk, pages in iter_chapter_chunks(source, section_index):
         section_id = str(chunk["section_id"])
@@ -271,16 +302,16 @@ def main() -> None:
             "file": destination.relative_to(output_dir.parent).as_posix(),
         })
 
-    metadata_path = source / "source-metadata.json"
-    source_hash = None
-    if metadata_path.is_file():
-        source_hash = json.loads(metadata_path.read_text(encoding="utf-8")).get("source_sha256")
     output_dir.parent.mkdir(parents=True, exist_ok=True)
     dataset_index = {
         "dataset_id": "kent-pdf-rubric-grade-candidate-index",
         "source_file_sha256": source_hash,
+        "abbreviation_index_sha256": abbreviation_index_sha256,
+        "abbreviation_index_verified": args.require_verified_abbreviations,
         "candidate_count": total_candidates,
+        "candidate_id_scheme": "chunk-page-layout-coordinate-span-token-v1",
         "verification_status": "needs_review",
+        "review_status_counts": {"pending": total_candidates, "verified": 0, "rejected": 0, "uncertain": 0},
         "rubric_hierarchy_assigned": False,
         "chunks": chunk_index,
     }

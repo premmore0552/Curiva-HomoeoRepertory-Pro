@@ -65,13 +65,19 @@ type CandidateRecord = {
   verification_status: "needs_review";
 };
 
+type ReviewStatus = "verified" | "rejected" | "uncertain" | "duplicate";
+
 type CandidateReview = {
   candidateId: string;
   remedyAbbreviation: string;
   rubricText: string;
-  approvedGrade: number;
+  rubricPath: string[];
+  approvedGrade: number | null;
   sourcePdfPage: number;
-  sourceChecked: true;
+  sourceChecked: boolean;
+  reviewStatus: ReviewStatus;
+  duplicateOfCandidateId?: string;
+  reviewNote?: string;
   savedAt: string;
 };
 
@@ -139,10 +145,13 @@ function validateSectionIndex(value: unknown): value is SectionIndex {
   );
 }
 
-function validateCandidateIndex(value: unknown): value is { dataset_id: string; source_file_sha256: string; chunks: CandidateChunk[] } {
+function validateCandidateIndex(value: unknown): value is { dataset_id: string; source_file_sha256: string; abbreviation_index_sha256: string; abbreviation_index_verified: true; chunks: CandidateChunk[] } {
   return isObject(value) &&
     value.dataset_id === "kent-pdf-rubric-grade-candidate-index" &&
     value.source_file_sha256 === "8f7ef6e5029dfb0bf9a05800f63e5e05043d39c74d5dd0df500a27484aecec6e" &&
+    typeof value.abbreviation_index_sha256 === "string" &&
+    /^[a-f0-9]{64}$/.test(value.abbreviation_index_sha256) &&
+    value.abbreviation_index_verified === true &&
     Array.isArray(value.chunks) &&
     value.chunks.every((chunk) =>
       isObject(chunk) &&
@@ -160,14 +169,77 @@ function validateCandidateIndex(value: unknown): value is { dataset_id: string; 
     );
 }
 
-function readSavedReviews(): Record<string, CandidateReview> {
+const REVIEW_DB_NAME = "curiva-kent-review-store";
+const REVIEW_STORE_NAME = "candidate-reviews";
+
+function openReviewDatabase(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(REVIEW_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      const database = request.result;
+      if (!database.objectStoreNames.contains(REVIEW_STORE_NAME)) {
+        database.createObjectStore(REVIEW_STORE_NAME, { keyPath: "candidateId" });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error ?? new Error("Could not open local review storage."));
+  });
+}
+
+async function storeSavedReview(review: CandidateReview): Promise<void> {
+  const database = await openReviewDatabase();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(REVIEW_STORE_NAME, "readwrite");
+      transaction.objectStore(REVIEW_STORE_NAME).put(review);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error ?? new Error("Could not save the review."));
+      transaction.onabort = () => reject(transaction.error ?? new Error("The review save was cancelled."));
+    });
+  } finally {
+    database.close();
+  }
+}
+
+async function loadSavedReviews(): Promise<Record<string, CandidateReview>> {
+  const database = await openReviewDatabase();
+  let stored: CandidateReview[];
+  try {
+    stored = await new Promise<CandidateReview[]>((resolve, reject) => {
+      const transaction = database.transaction(REVIEW_STORE_NAME, "readonly");
+      const request = transaction.objectStore(REVIEW_STORE_NAME).getAll();
+      request.onsuccess = () => resolve(request.result as CandidateReview[]);
+      request.onerror = () => reject(request.error ?? new Error("Could not read saved reviews."));
+    });
+  } finally {
+    database.close();
+  }
+
+  const result = Object.fromEntries(stored.map((review) => [review.candidateId, review]));
+
+  // One-time, resumable migration from the original localStorage review format.
   try {
     const raw = localStorage.getItem(REVIEW_STORAGE_KEY);
-    if (!raw) return {};
+    if (!raw) return result;
     const parsed: unknown = JSON.parse(raw);
-    return isObject(parsed) ? parsed as Record<string, CandidateReview> : {};
+    if (!isObject(parsed)) return result;
+    const legacy = parsed as Record<string, CandidateReview>;
+    for (const review of Object.values(legacy)) {
+      if (!review || typeof review.candidateId !== "string" || result[review.candidateId]) continue;
+      const migrated: CandidateReview = {
+        ...review,
+        rubricPath: Array.isArray(review.rubricPath) ? review.rubricPath :
+          (typeof review.rubricText === "string" ? review.rubricText.split(" / ").filter(Boolean) : []),
+        reviewStatus: review.reviewStatus ?? "verified",
+      };
+      await storeSavedReview(migrated);
+      result[migrated.candidateId] = migrated;
+    }
+    localStorage.removeItem(REVIEW_STORAGE_KEY);
+    return result;
   } catch {
-    return {};
+    // Keep the legacy copy in localStorage if migration fails so it can be retried.
+    return result;
   }
 }
 
@@ -185,16 +257,34 @@ function CandidateReviewCard({
     saved?.approvedGrade ?? candidate.candidate_grade_from_source_key ?? "",
   );
   const [sourceChecked, setSourceChecked] = useState(saved?.sourceChecked ?? false);
+  const [reviewNote, setReviewNote] = useState(saved?.reviewNote ?? "");
+  const [duplicateOfCandidateId, setDuplicateOfCandidateId] = useState(saved?.duplicateOfCandidateId ?? "");
 
   useEffect(() => {
     setRubric(saved?.rubricText ?? candidate.suggested_rubric_context ?? "");
     setGrade(saved?.approvedGrade ?? candidate.candidate_grade_from_source_key ?? "");
     setSourceChecked(saved?.sourceChecked ?? false);
+    setReviewNote(saved?.reviewNote ?? "");
+    setDuplicateOfCandidateId(saved?.duplicateOfCandidateId ?? "");
   }, [candidate.id, saved]);
 
   const gradeLabel = candidate.candidate_grade_from_source_key === null
     ? "Unclear style"
     : "Grade " + candidate.candidate_grade_from_source_key + " candidate";
+  const rubricPath = rubric.split(/\s*\/\s*/).map((part) => part.trim()).filter(Boolean);
+  const saveDecision = (status: ReviewStatus) => onSave({
+    candidateId: candidate.id,
+    remedyAbbreviation: candidate.matched_abbreviation_as_printed_in_index,
+    rubricText: rubricPath.join(" / "),
+    rubricPath,
+    approvedGrade: grade === "" ? null : grade,
+    sourcePdfPage: candidate.source_pdf_page,
+    sourceChecked,
+    reviewStatus: status,
+    duplicateOfCandidateId: duplicateOfCandidateId.trim() || undefined,
+    reviewNote: reviewNote.trim(),
+    savedAt: new Date().toISOString(),
+  });
 
   return (
     <article className={saved ? "candidate-review-card candidate-reviewed" : "candidate-review-card"}>
@@ -203,20 +293,20 @@ function CandidateReviewCard({
           <strong>{candidate.matched_abbreviation_as_printed_in_index}</strong>
           <span>PDF page {candidate.source_pdf_page} · {gradeLabel}</span>
         </div>
-        {saved ? <span className="candidate-reviewed-label"><CheckCircle2 size={13} /> Reviewed locally</span> :
-          <span className="candidate-pending-label">Needs review</span>}
+        {saved ? <span className="candidate-reviewed-label"><CheckCircle2 size={13} /> {saved.reviewStatus ?? "verified"} · saved locally</span> :
+          <span className="candidate-pending-label">Pending review</span>}
       </div>
       <p className="candidate-source-line">{candidate.line_text_as_extracted || candidate.source_span.text}</p>
       <a className="candidate-open-source" href={"/data/kent/source.pdf#page=" + candidate.source_pdf_page} target="_blank" rel="noreferrer">Open original PDF · page {candidate.source_pdf_page}</a>
-      {candidate.suggested_rubric_context && <div className="candidate-context-hint">Suggested from source heading/line layout · {candidate.suggested_context_method?.replace(/_/g, " ")}</div>}
+      {candidate.suggested_rubric_context && <div className="candidate-context-hint">Navigation suggestion only — confirm the complete hierarchy from the PDF · {candidate.suggested_context_method?.replace(/_/g, " ")}</div>}
       <div className="candidate-style-evidence">
         Source token: <strong>{candidate.token_as_printed_in_rubric}</strong>
         <span>{candidate.grade_evidence.replace(/_/g, " ")}</span>
         <small>{candidate.source_span.color} · {candidate.source_span.font_family}{candidate.source_span.italic ? " · italic" : ""}</small>
       </div>
       <label className="candidate-rubric-field">
-        Suggested rubric path — confirm or correct against the PDF
-        <input value={rubric} onChange={(event) => setRubric(event.target.value)} placeholder="Enter rubric and parent path from source…" />
+        Complete rubric path, from chapter to exact child rubric (separate levels with /)
+        <input value={rubric} onChange={(event) => setRubric(event.target.value)} placeholder="MIND / ABSENT-MINDED / morning" />
       </label>
       <div className="candidate-review-actions">
         <label className="candidate-grade-field">
@@ -232,21 +322,22 @@ function CandidateReviewCard({
           <input type="checkbox" checked={sourceChecked} onChange={(event) => setSourceChecked(event.target.checked)} />
           I checked the original PDF page
         </label>
-        <button
-          className="candidate-save-button"
-          disabled={!rubric.trim() || !grade || !sourceChecked}
-          onClick={() => onSave({
-            candidateId: candidate.id,
-            remedyAbbreviation: candidate.matched_abbreviation_as_printed_in_index,
-            rubricText: rubric.trim(),
-            approvedGrade: grade as number,
-            sourcePdfPage: candidate.source_pdf_page,
-            sourceChecked: true,
-            savedAt: new Date().toISOString(),
-          })}
-        >
-          {saved ? "Update review" : "Save verified record"}
+      </div>
+      <label className="candidate-rubric-field">
+        Duplicate of candidate ID (only after checking both source occurrences)
+        <input value={duplicateOfCandidateId} onChange={(event) => setDuplicateOfCandidateId(event.target.value)} placeholder="Paste the original candidate ID…" />
+      </label>
+      <label className="candidate-rubric-field">
+        Review note (required when overriding the suggested grade)
+        <input value={reviewNote} onChange={(event) => setReviewNote(event.target.value)} placeholder="Explain ambiguity, correction or rejection…" />
+      </label>
+      <div className="candidate-review-actions">
+        <button className="candidate-save-button" disabled={!rubricPath.length || !grade || !sourceChecked} onClick={() => saveDecision("verified")}>
+          {saved?.reviewStatus === "verified" ? "Update verified record" : "Verify source record"}
         </button>
+        <button className="secondary-button" disabled={!sourceChecked} onClick={() => saveDecision("uncertain")}>Mark uncertain</button>
+        <button className="secondary-button" disabled={!sourceChecked} onClick={() => saveDecision("rejected")}>Reject candidate</button>
+        <button className="secondary-button" disabled={!sourceChecked || !duplicateOfCandidateId.trim() || duplicateOfCandidateId.trim() === candidate.id} onClick={() => saveDecision("duplicate")}>Mark confirmed duplicate</button>
       </div>
     </article>
   );
@@ -269,6 +360,7 @@ export default function KentSourceBrowser({
   const [selectedPageNumber, setSelectedPageNumber] = useState<number | null>(null);
   const [query, setQuery] = useState("");
   const [candidateQuery, setCandidateQuery] = useState("");
+  const [candidateStatusFilter, setCandidateStatusFilter] = useState<"pending" | "verified" | "uncertain" | "rejected" | "duplicate" | "all">("pending");
   const [candidateLimit, setCandidateLimit] = useState(50);
   const [view, setView] = useState<"source" | "candidates">("source");
   const [loadingIndex, setLoadingIndex] = useState(true);
@@ -276,7 +368,17 @@ export default function KentSourceBrowser({
   const [loadingCandidates, setLoadingCandidates] = useState(false);
   const [error, setError] = useState("");
   const [candidateError, setCandidateError] = useState("");
-  const [reviews, setReviews] = useState<Record<string, CandidateReview>>(readSavedReviews);
+  const [reviews, setReviews] = useState<Record<string, CandidateReview>>({});
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    loadSavedReviews()
+      .then((saved) => { if (active) setReviews(saved); })
+      .catch(() => { if (active) setCandidateError("Local review storage could not be opened on this device."); })
+      .finally(() => { if (active) setReviewsLoading(false); });
+    return () => { active = false; };
+  }, []);
 
   const activeChunk = chunks[chunkIndex];
   const candidateChunk = candidateChunks.find((chunk) =>
@@ -313,8 +415,12 @@ export default function KentSourceBrowser({
 
       if (candidateResponse.ok) {
         const candidatePayload: unknown = await candidateResponse.json();
-        if (!validateCandidateIndex(candidatePayload)) throw new Error("The grade-candidate index is malformed.");
-        setCandidateChunks(candidatePayload.chunks.filter((item) => item.section_id === sectionId).sort((a, b) => a.part - b.part));
+        if (!validateCandidateIndex(candidatePayload)) {
+          setCandidateChunks([]);
+          setCandidateError("Candidate review is locked until its chunks are regenerated from a source-proofread abbreviation index. Follow the Phase 2 review guide.");
+        } else {
+          setCandidateChunks(candidatePayload.chunks.filter((item) => item.section_id === sectionId).sort((a, b) => a.part - b.part));
+        }
       } else if (candidateResponse.status !== 404) {
         throw new Error("Could not load grade candidate index (HTTP " + candidateResponse.status + ").");
       }
@@ -364,7 +470,7 @@ export default function KentSourceBrowser({
     const match = candidateChunk;
     if (!match) {
       setCandidates([]);
-      setCandidateError("No grade-candidate chunk exists for this chapter part. Run the grade-candidate importer first.");
+      setCandidateError("No source-proofread candidate chunk is installed for this chapter part. Proofread abbreviations, regenerate candidate chunks and copy the new index/chunks into the app.");
       return;
     }
     const controller = new AbortController();
@@ -402,44 +508,63 @@ export default function KentSourceBrowser({
 
   const candidateMatches = useMemo(() => {
     const term = candidateQuery.trim().toLocaleLowerCase();
-    if (!term) return candidates;
-    return candidates.filter((candidate) =>
-      candidate.token_as_printed_in_rubric.toLocaleLowerCase().includes(term) ||
-      candidate.line_text_as_extracted.toLocaleLowerCase().includes(term)
-    );
-  }, [candidates, candidateQuery]);
+    return candidates.filter((candidate) => {
+      const saved = reviews[candidate.id];
+      const status = saved?.reviewStatus ?? (saved?.sourceChecked ? "verified" : "pending");
+      const statusMatch = candidateStatusFilter === "all" || status === candidateStatusFilter;
+      const textMatch = !term ||
+        candidate.token_as_printed_in_rubric.toLocaleLowerCase().includes(term) ||
+        candidate.line_text_as_extracted.toLocaleLowerCase().includes(term);
+      return statusMatch && textMatch;
+    });
+  }, [candidates, candidateQuery, candidateStatusFilter, reviews]);
 
   const selectedPage = pages.find((page) => page.pdf_page === selectedPageNumber) ?? null;
 
   const saveReview = (review: CandidateReview) => {
-    setReviews((current) => {
-      const next = { ...current, [review.candidateId]: review };
-      try {
-        localStorage.setItem(REVIEW_STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        setCandidateError("This device's local storage is full. Export existing reviews before continuing.");
-      }
-      return next;
-    });
+    void storeSavedReview(review)
+      .then(() => {
+        setReviews((current) => ({ ...current, [review.candidateId]: review }));
+        setCandidateError("");
+      })
+      .catch(() => {
+        setCandidateError("This review could not be written to IndexedDB. Export your existing decisions and check device storage.");
+      });
   };
 
-  const exportReviews = () => {
-    const payload = {
-      dataset_id: "curiva-kent-user-verified-review-decisions",
-      source_file_sha256: "8f7ef6e5029dfb0bf9a05800f63e5e05043d39c74d5dd0df500a27484aecec6e",
-      records: Object.values(reviews),
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "curiva-kent-verified-review-decisions.json";
-    anchor.click();
-    URL.revokeObjectURL(url);
+  const exportReviews = async () => {
+    try {
+      const latest = await loadSavedReviews();
+      setReviews(latest);
+      const payload = {
+        dataset_id: "curiva-kent-user-verified-review-decisions",
+        source_file_sha256: "8f7ef6e5029dfb0bf9a05800f63e5e05043d39c74d5dd0df500a27484aecec6e",
+        records: Object.values(latest),
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "curiva-kent-verified-review-decisions.json";
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setCandidateError("Could not export the local review database. Check device storage and try again.");
+    }
   };
 
-  const candidateCountReviewed = candidates.filter((candidate) => reviews[candidate.id]).length;
+  const currentReviewCounts = candidates.reduce((counts, candidate) => {
+    const saved = reviews[candidate.id];
+    const status = saved?.reviewStatus ?? (saved?.sourceChecked ? "verified" : "pending");
+    counts[status] = (counts[status] ?? 0) + 1;
+    return counts;
+  }, {} as Record<string, number>);
   const reviewedTotal = Object.keys(reviews).length;
+  const globalReviewCounts = Object.values(reviews).reduce((counts, review) => {
+    const status = review.reviewStatus ?? (review.sourceChecked ? "verified" : "uncertain");
+    counts[status] = (counts[status] ?? 0) + 1;
+    return counts;
+  }, {} as Record<string, number>);
 
   return (
     <section className="kent-source-browser">
@@ -455,7 +580,7 @@ export default function KentSourceBrowser({
       <div className="kent-source-view-tabs">
         <button className={view === "source" ? "active" : ""} onClick={() => setView("source")}><FileText size={14} /> PDF pages</button>
         <button className={view === "candidates" ? "active" : ""} onClick={() => setView("candidates")}><ClipboardCheck size={14} /> Grade candidates</button>
-        <button className="candidate-export-button" onClick={exportReviews} disabled={!reviewedTotal}><Download size={14} /> Export {reviewedTotal} reviews</button>
+        <button className="candidate-export-button" onClick={exportReviews} disabled={reviewsLoading || !reviewedTotal}><Download size={14} /> Export {reviewedTotal} reviews</button>
       </div>
 
       {loadingIndex && <div className="empty-library-note"><LoaderCircle className="inline-spin" size={15} /> Loading chapter index…</div>}
@@ -510,10 +635,25 @@ export default function KentSourceBrowser({
 
           {view === "candidates" && <>
             <div className="candidate-review-summary">
-              <span>{candidateChunk?.candidate_count ?? 0} candidate occurrences in this 25-page chunk</span>
-              <span>{candidateCountReviewed} reviewed here · {reviewedTotal} saved on this device</span>
+              <span>{candidateChunk?.candidate_count ?? 0} candidate occurrences in this source chunk</span>
+              <span>{currentReviewCounts.verified ?? 0} verified · {currentReviewCounts.uncertain ?? 0} uncertain · {currentReviewCounts.rejected ?? 0} rejected · {currentReviewCounts.duplicate ?? 0} duplicate · {currentReviewCounts.pending ?? candidates.length - (currentReviewCounts.verified ?? 0) - (currentReviewCounts.uncertain ?? 0) - (currentReviewCounts.rejected ?? 0) - (currentReviewCounts.duplicate ?? 0)} pending</span>
+            </div>
+            <div className="candidate-review-summary">
+              <span>{reviewsLoading ? "Loading saved decisions…" : reviewedTotal + " total saved decisions on this device (IndexedDB)"}</span>
+              <span>{globalReviewCounts.verified ?? 0} verified · {globalReviewCounts.uncertain ?? 0} uncertain · {globalReviewCounts.rejected ?? 0} rejected · {globalReviewCounts.duplicate ?? 0} duplicates</span>
             </div>
             <div className="rubric-search-box kent-source-search"><Search size={16} /><input aria-label="Search grade candidates" value={candidateQuery} onChange={(event) => setCandidateQuery(event.target.value)} placeholder="Search remedy abbreviation or source line…" /></div>
+            <label className="candidate-grade-field">
+              Show decisions
+              <select value={candidateStatusFilter} onChange={(event) => { setCandidateStatusFilter(event.target.value as typeof candidateStatusFilter); setCandidateLimit(50); }}>
+                <option value="pending">Pending review</option>
+                <option value="verified">Verified</option>
+                <option value="uncertain">Uncertain</option>
+                <option value="rejected">Rejected</option>
+                <option value="duplicate">Confirmed duplicates</option>
+                <option value="all">All candidates</option>
+              </select>
+            </label>
             {loadingCandidates && <div className="empty-library-note"><LoaderCircle className="inline-spin" size={15} /> Loading candidate records…</div>}
             {candidateError && <div className="empty-library-note source-load-error"><strong>Candidate review unavailable.</strong><p>{candidateError}</p></div>}
             {!loadingCandidates && !candidateError && <>

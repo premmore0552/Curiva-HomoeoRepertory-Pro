@@ -19,6 +19,17 @@ export interface KentRemedyAbbreviationRecord {
 
 export interface KentRemedyAbbreviationDataset {
   dataset_id: "kent-pdf-remedy-abbreviation-index";
+  source_file_sha256?: string;
+  source_record_count?: number;
+  proofreading?: {
+    status: "partial" | "complete";
+    source_record_count: number;
+    verified_record_count: number;
+    uncertain_record_count: number;
+    rejected_record_count: number;
+    pending_record_count: number;
+    external_data_used: false;
+  };
   source: {
     title_heading: string;
     pdf_page_start: number;

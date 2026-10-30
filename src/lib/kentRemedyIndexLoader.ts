@@ -60,8 +60,12 @@ export async function loadKentRemedyAbbreviationIndex(
   }
 
   const payload: unknown = await response.json();
-  if (!isRecord(payload) || payload.dataset_id !== "kent-pdf-remedy-abbreviation-index") {
-    throw new Error("The local file is not a recognised Kent PDF abbreviation dataset.");
+  if (
+    !isRecord(payload) ||
+    payload.dataset_id !== "kent-pdf-remedy-abbreviation-index" ||
+    (payload.source_file_sha256 !== undefined && payload.source_file_sha256 !== "8f7ef6e5029dfb0bf9a05800f63e5e05043d39c74d5dd0df500a27484aecec6e")
+  ) {
+    throw new Error("The local file is not a recognised Kent PDF abbreviation dataset for the supplied source.");
   }
 
   if (
