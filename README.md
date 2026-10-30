@@ -16,7 +16,8 @@ The visual identity, icons, data and code are original to Curiva. The reference 
 - No demo rubrics, remedy-grade relationships or fabricated remedies are bundled. The repertorization matrix remains empty until source-derived records are imported and reviewed.
 - The supplied Kent PDF has a local-only extraction workflow with page-aligned source chunks, layout/style retention, a section index, a checksum manifest and a package validator.
 - The existing local extraction audit contains a 650-entry abbreviation index and 433,541 source-matched remedy-token review candidates. These are not verified repertory entries and the book-derived data is not shipped in this public repository.
-- Candidate review lets a user confirm the exact rubric and grade against the original PDF. Only manually checked review decisions can be converted into the active repertory matrix; no candidate is silently treated as verified.
+- Phase 2 adds a source-page proofreading queue for remedy abbreviations, IndexedDB-backed candidate review, explicit verified/rejected/uncertain/duplicate dispositions, exact rubric-path entry, candidate-ID/source-page checks, grade-conflict quarantine and a parent-child database builder. The full process is documented in [Kent Phase 2 review](docs/KENT_PHASE2_REVIEW.md).
+- The candidate count (433,541) is a machine-extracted review queue, not a verified-record count. The app does not treat suggested rubric context or typography as a final human verification.
 - Case rubric selections are stored locally in the current browser profile. No cloud sync or patient account is included.
 - Installable PWA shell for Android Chrome and desktop browsers. Source chunks are generated locally and are not bundled into the public repository.
 
