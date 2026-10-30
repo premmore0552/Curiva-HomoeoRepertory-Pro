@@ -27,6 +27,7 @@ export interface VerifiedKentRemedy {
   abbreviation_as_printed: string;
   full_name_as_printed_in_pdf_index: string;
   source_id: "kent-uploaded-pdf";
+  abbreviation_verification_status: "verified";
 }
 
 export interface VerifiedKentDatabase {
