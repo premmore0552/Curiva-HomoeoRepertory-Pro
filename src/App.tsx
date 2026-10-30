@@ -3,6 +3,8 @@ import { kentSourceCatalog } from './data/kent-source-catalog';
 import KentSourceBrowser from './components/KentSourceBrowser';
 import type { KentRemedyAbbreviationRecord } from './data/kent-remedy-index';
 import { KentSourceDataNotInstalledError, loadKentRemedyAbbreviationIndex } from './lib/kentRemedyIndexLoader';
+import type { VerifiedKentDatabase } from './data/verified-kent-database';
+import { VerifiedKentDatabaseNotInstalledError, loadVerifiedKentDatabase } from './lib/verifiedKentDatabaseLoader';
 import {
   Activity, ArrowDownUp, BookOpen, ChevronDown, CircleHelp, Copy, Download,
   Filter, FolderOpen, Home, Info, Menu, Merge, Plus, Search, ShoppingBag,
@@ -18,10 +20,7 @@ type RubricRow = {
   values: Record<string, number>;
 };
 
-// No placeholder repertory data is bundled. These typed collections stay empty until PDF records are parsed.
-const remedies: Remedy[] = [];
-const addableRubrics: RubricRow[] = [];
-
+// Repertory rows and remedies are derived only from the locally installed, manually verified PDF database.
 const cloneRows = (rows: RubricRow[]) => rows.map((row) => ({ ...row, values: { ...row.values } }));
 const gradeClass = (grade: number) => `grade grade-${grade}`;
 
@@ -61,6 +60,45 @@ function App() {
   const [remedyIndexError, setRemedyIndexError] = useState('');
   const [remedyQuery, setRemedyQuery] = useState('');
   const [sourceChapter, setSourceChapter] = useState<{ id: string; title: string } | null>(null);
+  const [verifiedDatabase, setVerifiedDatabase] = useState<VerifiedKentDatabase | null>(null);
+  const [databaseStatus, setDatabaseStatus] = useState<'loading' | 'ready' | 'missing' | 'error'>('loading');
+  const [databaseError, setDatabaseError] = useState('');
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadVerifiedKentDatabase(controller.signal)
+      .then((database) => {
+        setVerifiedDatabase(database);
+        setDatabaseStatus('ready');
+        setDatabaseError('');
+        setNotice('Loaded ' + database.rubric_count + ' manually verified Kent rubrics.');
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        if (error instanceof VerifiedKentDatabaseNotInstalledError) {
+          setDatabaseStatus('missing');
+          setDatabaseError(error.message);
+        } else {
+          setDatabaseStatus('error');
+          setDatabaseError(error instanceof Error ? error.message : 'Could not load the verified Kent database.');
+        }
+      });
+    return () => controller.abort();
+  }, []);
+
+  const remedies = useMemo<Remedy[]>(() => verifiedDatabase?.remedies.map((remedy) => ({
+    id: remedy.id,
+    abbr: remedy.abbreviation_as_printed,
+    name: remedy.full_name_as_printed_in_pdf_index,
+    author: 'Kent',
+  })) ?? [], [verifiedDatabase]);
+
+  const addableRubrics = useMemo<RubricRow[]>(() => verifiedDatabase?.rubrics.map((rubric) => ({
+    id: rubric.id,
+    path: rubric.text_as_entered_from_pdf,
+    source: 'Kent PDF · pp. ' + [...new Set(rubric.grades.flatMap((grade) => grade.source_pdf_pages))].sort((a, b) => a - b).join(', '),
+    values: Object.fromEntries(rubric.grades.map((grade) => [grade.remedy_id, grade.grade])),
+  })) ?? [], [verifiedDatabase]);
 
   useEffect(() => {
     if (page !== 'materia') return;
@@ -244,6 +282,9 @@ function App() {
               </div>
             </div>
 
+            {databaseStatus === 'missing' && <div className="local-data-note"><Info size={16} /> No verified rubric database is installed. Review PDF grade candidates, export your checked records, then run build-verified-kent-database.py to activate repertorization.</div>}
+            {databaseStatus === 'error' && <div className="local-data-note"><Info size={16} /> The local verified Kent database could not be loaded: {databaseError}</div>}
+            {databaseStatus === 'loading' && <div className="local-data-note"><Info size={16} /> Checking local verified Kent data…</div>}
             <section className="repertory-panel">
               <div className="panel-topline">
                 <Brand />
@@ -329,7 +370,7 @@ function App() {
               </div>
 
               <div className="matrix-footer">
-                <div className="footer-notice"><Info size={15} /><span>{notice}</span></div>
+                <div className="footer-notice"><Info size={15} /><span>{verifiedDatabase ? 'Verified PDF data: ' + verifiedDatabase.rubric_count + ' rubrics · ' + verifiedDatabase.remedy_count + ' remedies · ' + verifiedDatabase.verified_grade_pair_count + ' source-checked grades. ' : ''}{notice}</span></div>
                 <div className="matrix-footer-actions"><span>{rows.length} rubrics · {visibleRemedies.length} remedies</span><button className="remove-selected-button" onClick={removeSelected} disabled={!selectedRows.length}><Trash2 size={14} /> Remove selected</button></div>
               </div>
             </section>
