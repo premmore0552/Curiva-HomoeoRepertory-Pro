@@ -62,15 +62,19 @@ The script creates:
 - `structured/remedy-abbreviations-audit.csv` — review-friendly table
 - `structured/remedy-abbreviations-qc.json` — duplicates, continuation joins and unclassified lines
 
-The page layout has two split full names: `Aur-m-n.` continues with `Natronatum` on PDF page 11, and `Chen-an.` continues with `Anthelminticum` on PDF page 12. The parser joins only short, next-line text in the same column and records each continuation. It does not standardize either name.
+The page layout has two split full names within their respective PDF pages: `Aur-m-n.` continues with `Natronatum` on PDF page 11, and `Chen-an.` continues with `Anthelminticum` on PDF page 12. The parser joins only short, next-line text in the same column and records each continuation. It does not standardize either name.
 
 The app's Materia Medica navigation currently exposes this **abbreviation index only** when the local JSON file is installed. It is not a set of full remedy monographs.
 
-For local testing, copy the JSON file to:
+For local testing, install both the source reader package and the abbreviation index:
 
 ```bash
 mkdir -p public/data/kent
+cp "$HOME/Curiva/kent-source-chunks/section-index.json" public/data/kent/section-index.json
+cp -R "$HOME/Curiva/kent-source-chunks/chunks" public/data/kent/
 cp "$HOME/Curiva/kent-source-chunks/structured/remedy-abbreviations.json" public/data/kent/remedy-abbreviations.json
 ```
+
+The chapter browser expects the `section-index.json` file and `chunks/` directory. The Materia Medica abbreviation index expects the JSON file shown above. These paths are ignored by Git and must be copied again into a fresh local clone.
 
 That data directory is ignored by Git on purpose. The repository is public and the supplied PDF displays a 1998 MEDI-T copyright notice, so full book-derived data must not be committed publicly without confirming redistribution rights. A private repository reduces exposure but is not itself proof of permission.
