@@ -21,6 +21,38 @@ type RubricRow = {
 };
 
 // Repertory rows and remedies are derived only from the locally installed, manually verified PDF database.
+const CASE_STORAGE_KEY = 'curiva.repertory.case-sets.v1';
+
+function readSavedCaseSets(): Record<string, RubricRow[]> {
+  const empty: Record<string, RubricRow[]> = { A: [], B: [], C: [], D: [] };
+  try {
+    const raw = localStorage.getItem(CASE_STORAGE_KEY);
+    if (!raw) return empty;
+    const value: unknown = JSON.parse(raw);
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return empty;
+    const parsed = value as Record<string, unknown>;
+    for (const tab of ['A', 'B', 'C', 'D']) {
+      if (!Array.isArray(parsed[tab])) continue;
+      empty[tab] = parsed[tab].filter((row): row is RubricRow => {
+        if (typeof row !== 'object' || row === null) return false;
+        const item = row as Record<string, unknown>;
+        return typeof item.id === 'string' &&
+          typeof item.path === 'string' &&
+          typeof item.source === 'string' &&
+          typeof item.values === 'object' &&
+          item.values !== null &&
+          !Array.isArray(item.values) &&
+          Object.values(item.values as Record<string, unknown>).every((grade) =>
+            grade === 1 || grade === 2 || grade === 3
+          );
+      });
+    }
+    return empty;
+  } catch {
+    return empty;
+  }
+}
+
 const cloneRows = (rows: RubricRow[]) => rows.map((row) => ({ ...row, values: { ...row.values } }));
 const gradeClass = (grade: number) => `grade grade-${grade}`;
 
@@ -39,7 +71,7 @@ function Brand() {
 function App() {
   const [page, setPage] = useState<Page>('repertory');
   const [activeCase, setActiveCase] = useState('A');
-  const [caseSets, setCaseSets] = useState<Record<string, RubricRow[]>>({ A: [], B: [], C: [], D: [] });
+  const [caseSets, setCaseSets] = useState<Record<string, RubricRow[]>>(readSavedCaseSets);
   const rows = caseSets[activeCase] ?? [];
   const [past, setPast] = useState<RubricRow[][]>([]);
   const [future, setFuture] = useState<RubricRow[][]>([]);
@@ -131,6 +163,14 @@ function App() {
       record.full_name_as_printed.toLocaleLowerCase().includes(query)
     );
   }, [remedyIndex, remedyQuery]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CASE_STORAGE_KEY, JSON.stringify(caseSets));
+    } catch {
+      setNotice('Could not save the case matrix on this device. Export your current work before closing.');
+    }
+  }, [caseSets]);
 
   const updateRows = (next: RubricRow[]) => {
     setPast((stack) => [...stack.slice(-29), cloneRows(rows)]);
