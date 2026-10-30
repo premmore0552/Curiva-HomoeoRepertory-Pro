@@ -333,3 +333,5 @@ button:disabled{cursor:not-allowed;opacity:.45}
  .candidate-save-button{margin-left:0;width:100%}
  .candidate-review-list{max-height:72vh}
 }
+
+.candidate-context-hint{margin:0 0 8px;color:#7c8a98;font-size:9px;line-height:1.45}
