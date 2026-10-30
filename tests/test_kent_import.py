@@ -105,46 +105,25 @@ class AbbreviationParserTests(unittest.TestCase):
                 ABBREVIATIONS.load_pages(root)
 
     def test_grade_candidates_keep_pdf_style_and_remain_unverified(self):
-        with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp)
-            (root / "chunks" / "mind").mkdir(parents=True)
-            (root / "structured").mkdir()
-            index = {
-                "sections": [{"id": "mind", "pdf_page_start": 66, "pdf_page_end": 66, "internal_page_range": [1, 95]}],
-                "chunks": [{
-                    "section_id": "mind", "part": 1,
-                    "pdf_page_start": 66, "pdf_page_end": 66,
-                    "page_count": 1, "file": "chunks/mind/mind-001.jsonl"
-                }]
-            }
-            (root / "section-index.json").write_text(json.dumps(index), encoding="utf-8")
-            page = {
-                "pdf_page": 66, "section_id": "mind",
-                "text_items": [
-                    {"text": "Nat-m., ", "top": 206, "left": 183, "italic": False, "color": "#000000"},
-                    {"text": "tarent. ", "top": 204, "left": 256, "italic": True, "color": "#0070c0"},
-                    {"text": "APIS.", "top": 204, "left": 322, "italic": False, "bold": True, "color": "#ff0000"}
-                ]
-            }
-            (root / "chunks" / "mind" / "mind-001.jsonl").write_text(json.dumps(page) + "\n", encoding="utf-8")
-            abbreviation_data = {
-                "dataset_id": "kent-pdf-remedy-abbreviation-index",
-                "duplicate_abbreviation_count": 0,
-                "records": [
-                    {"abbreviation_as_printed": "Nat-m."},
-                    {"abbreviation_as_printed": "Tarent."},
-                    {"abbreviation_as_printed": "Apis."}
-                ]
-            }
-            abbreviation_path = root / "structured" / "remedy-abbreviations.json"
-            abbreviation_path.write_text(json.dumps(abbreviation_data), encoding="utf-8")
-            abbreviation_map = GRADE_CANDIDATES.load_abbreviation_map(abbreviation_path)
-            candidates, qc = GRADE_CANDIDATES.extract_candidates(root, abbreviation_map)
-
-        self.assertEqual([item["candidate_grade_from_source_key"] for item in candidates], [1, 2, 3])
-        self.assertEqual([item["verification_status"] for item in candidates], ["needs_review"] * 3)
+        abbreviation_map = {"nat-m.": "Nat-m.", "tarent.": "Tarent.", "apis.": "Apis."}
+        page = {
+            "pdf_page": 66,
+            "section_id": "mind",
+            "text_items": [
+                {"text": "ABRUPT", "top": 100, "left": 108, "font_family": "Arial", "bold": True, "color": "#000080", "italic": False},
+                {"text": " : Nat-m., ", "top": 100, "left": 175, "font_family": "TimesNewRomanPSMT", "bold": False, "color": "#000000", "italic": False},
+                {"text": "tarent. ", "top": 100, "left": 256, "font_family": "TimesNewRomanPS", "bold": True, "color": "#0070c0", "italic": True},
+                {"text": "APIS.", "top": 100, "left": 322, "font_family": "TimesNewRomanPS", "bold": True, "color": "#ff0000", "italic": False},
+                {"text": "morning : Nat-m.", "top": 130, "left": 162, "font_family": "TimesNewRomanPSMT", "bold": False, "color": "#000000", "italic": False},
+            ],
+        }
+        candidates, wrapped = GRADE_CANDIDATES.candidate_records(page, abbreviation_map, "mind-001", {})
+        self.assertEqual([item["candidate_grade_from_source_key"] for item in candidates], [1, 2, 3, 1])
+        self.assertEqual([item["verification_status"] for item in candidates], ["needs_review"] * 4)
         self.assertTrue(all(item["rubric_assignment"] == "unassigned" for item in candidates))
-        self.assertEqual(qc["records_verified"], 0)
+        self.assertEqual(candidates[0]["suggested_rubric_context"], "ABRUPT")
+        self.assertEqual(candidates[3]["suggested_rubric_context"], "ABRUPT / morning")
+        self.assertEqual(len(wrapped), 0)
 
     def test_black_uppercase_does_not_get_an_automatic_grade_three(self):
         grade, evidence = GRADE_CANDIDATES.grade_evidence("PULS.", {"italic": False, "color": "#000000"})
