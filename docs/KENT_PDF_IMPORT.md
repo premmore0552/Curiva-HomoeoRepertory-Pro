@@ -78,3 +78,21 @@ cp "$HOME/Curiva/kent-source-chunks/structured/remedy-abbreviations.json" public
 The chapter browser expects the `section-index.json` file and `chunks/` directory. The Materia Medica abbreviation index expects the JSON file shown above. These paths are ignored by Git and must be copied again into a fresh local clone.
 
 That data directory is ignored by Git on purpose. The repository is public and the supplied PDF displays a 1998 MEDI-T copyright notice, so full book-derived data must not be committed publicly without confirming redistribution rights. A private repository reduces exposure but is not itself proof of permission.
+
+
+## Second structured stage: source-grade candidates (not verified rubric data)
+
+Once the abbreviation index is created, extract candidate remedy tokens from the repertory chapters:
+
+```bash
+python scripts/parse-kent-grade-candidates.py --source "$HOME/Curiva/kent-source-chunks"
+```
+
+The script matches tokens only against the PDF-derived abbreviation index and retains the complete extracted line, PDF page, chapter, token spelling, layout position, font family, color, bold/italic flags, and the source grade-key interpretation. It creates:
+
+- `structured/rubric-grade-candidates.jsonl` — source-linked token candidates
+- `structured/rubric-grade-candidates-qc.json` — counts by chapter and source-grade evidence, conflicting style evidence, pages without layout spans, and possible line-wrapped tokens
+
+**This is not a finished repertory database.** The candidates do not yet have a rubric hierarchy; every record is marked `needs_review` and `rubric_assignment: unassigned`. A typography-to-grade candidate is only a transcription aid. It must be checked against the PDF image and assigned to the correct rubric before it can enter the repertorization matrix. Mixed uppercase/italic evidence is left without a grade candidate. Wrapped abbreviations are flagged, not silently joined.
+
+The source grade key is taken from PDF page 36: capitals = 3, italics = 2, ordinary = 1. No external repertory or remedy information is consulted.
