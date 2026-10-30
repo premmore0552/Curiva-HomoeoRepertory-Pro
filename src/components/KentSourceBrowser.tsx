@@ -35,8 +35,9 @@ type SourcePage = {
 
 type SectionIndex = { chunks: ChunkMeta[] };
 
-function parseJsonLines(raw: string): SourcePage[] {
+function parseJsonLines(raw: string, expectedSectionId: string, chunk: ChunkMeta): SourcePage[] {
   const records: SourcePage[] = [];
+  const seenPages = new Set<number>();
   for (const [index, line] of raw.split(/\r?\n/).entries()) {
     if (!line.trim()) continue;
     let value: unknown;
@@ -53,9 +54,41 @@ function parseJsonLines(raw: string): SourcePage[] {
     ) {
       throw new Error("Chunk contains a page record with an unexpected shape.");
     }
-    records.push(value as SourcePage);
+    const page = value as SourcePage;
+    if (
+      page.section_id !== expectedSectionId ||
+      page.pdf_page < chunk.pdf_page_start ||
+      page.pdf_page > chunk.pdf_page_end ||
+      seenPages.has(page.pdf_page)
+    ) {
+      throw new Error("Chunk contains a duplicate page or a page outside its declared chapter range.");
+    }
+    seenPages.add(page.pdf_page);
+    records.push(page);
   }
+  if (records.length !== chunk.page_count) {
+    throw new Error("Chunk page count mismatch: expected " + chunk.page_count + ", received " + records.length + ".");
+  }
+  records.sort((a, b) => a.pdf_page - b.pdf_page);
   return records;
+}
+
+function validateChunkIndex(value: unknown): value is SectionIndex {
+  if (typeof value !== "object" || value === null || !Array.isArray((value as SectionIndex).chunks)) return false;
+  return (value as SectionIndex).chunks.every((chunk) =>
+    typeof chunk === "object" && chunk !== null &&
+    typeof chunk.section_id === "string" &&
+    Number.isInteger(chunk.part) && chunk.part > 0 &&
+    Number.isInteger(chunk.pdf_page_start) &&
+    Number.isInteger(chunk.pdf_page_end) &&
+    chunk.pdf_page_start > 0 &&
+    chunk.pdf_page_end >= chunk.pdf_page_start &&
+    chunk.page_count === chunk.pdf_page_end - chunk.pdf_page_start + 1 &&
+    typeof chunk.file === "string" &&
+    chunk.file.startsWith("chunks/") &&
+    !chunk.file.includes("..") &&
+    chunk.file.endsWith(".jsonl")
+  );
 }
 
 export default function KentSourceBrowser({
@@ -88,12 +121,21 @@ export default function KentSourceBrowser({
       .then(async (response) => {
         if (response.status === 404) throw new Error("The chapter chunk index is not installed. Copy section-index.json and the chunks folder into public/data/kent/.");
         if (!response.ok) throw new Error("Could not load source section index (HTTP " + response.status + ").");
-        return response.json() as Promise<SectionIndex>;
+        const payload: unknown = await response.json();
+        if (!validateChunkIndex(payload)) throw new Error("The chapter chunk index is malformed.");
+        return payload;
       })
       .then((index) => {
         const selected = index.chunks.filter((item) => item.section_id === sectionId);
         if (!selected.length) throw new Error("No page chunks were found for " + sectionTitle + ".");
-        setChunks(selected.sort((a, b) => a.part - b.part));
+        const ordered = selected.sort((a, b) => a.part - b.part);
+        for (let index = 1; index < ordered.length; index += 1) {
+          if (ordered[index].part !== ordered[index - 1].part + 1 ||
+              ordered[index].pdf_page_start !== ordered[index - 1].pdf_page_end + 1) {
+            throw new Error("The chapter chunk index has a gap or duplicate part.");
+          }
+        }
+        setChunks(ordered);
       })
       .catch((reason: unknown) => {
         if (controller.signal.aborted) return;
@@ -120,7 +162,7 @@ export default function KentSourceBrowser({
         return response.text();
       })
       .then((raw) => {
-        const loaded = parseJsonLines(raw);
+        const loaded = parseJsonLines(raw, sectionId, chunks[chunkIndex]);
         setPages(loaded);
         if (loaded.length) setSelectedPageNumber(loaded[0].pdf_page);
       })
