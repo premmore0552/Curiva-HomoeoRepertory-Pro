@@ -254,7 +254,6 @@ function CandidateReviewCard({
     saved?.approvedGrade ?? candidate.candidate_grade_from_source_key ?? "",
   );
   const [sourceChecked, setSourceChecked] = useState(saved?.sourceChecked ?? false);
-  const [reviewStatus, setReviewStatus] = useState<ReviewStatus>(saved?.reviewStatus ?? "verified");
   const [reviewNote, setReviewNote] = useState(saved?.reviewNote ?? "");
   const [duplicateOfCandidateId, setDuplicateOfCandidateId] = useState(saved?.duplicateOfCandidateId ?? "");
 
@@ -262,7 +261,6 @@ function CandidateReviewCard({
     setRubric(saved?.rubricText ?? candidate.suggested_rubric_context ?? "");
     setGrade(saved?.approvedGrade ?? candidate.candidate_grade_from_source_key ?? "");
     setSourceChecked(saved?.sourceChecked ?? false);
-    setReviewStatus(saved?.reviewStatus ?? "verified");
     setReviewNote(saved?.reviewNote ?? "");
     setDuplicateOfCandidateId(saved?.duplicateOfCandidateId ?? "");
   }, [candidate.id, saved]);
