@@ -25,7 +25,7 @@ GRADE_EVIDENCE = {
 
 def safe_chunk_path(base: Path, relative: str) -> Path:
     path = PurePosixPath(relative)
-    if not relative or path.is_absolute() or "\\\\" in relative or any(part in ("", ".", "..") for part in path.parts):
+    if not relative or path.is_absolute() or "\\" in relative or any(part in ("", ".", "..") for part in path.parts):
         raise ValueError("Unsafe candidate chunk path: " + relative)
     target = (base / Path(*path.parts)).resolve()
     if not target.is_relative_to(base.resolve()):
@@ -37,16 +37,22 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Check candidate IDs, source references and possible repeated occurrences.")
     parser.add_argument("--source", type=Path, required=True, help="Root of the extracted Kent source package")
     parser.add_argument("--out", type=Path, default=None, help="Output folder; defaults to source/structured")
+    parser.add_argument("--abbreviations", type=Path, default=None, help="Abbreviation index used to generate these candidate chunks")
     args = parser.parse_args()
     root = args.source.expanduser().resolve()
     output = (args.out or root / "structured").expanduser().resolve()
     metadata = json.loads((root / "source-metadata.json").read_text(encoding="utf-8"))
     index = json.loads((output / "grade-candidates-index.json").read_text(encoding="utf-8"))
-    abbreviation_payload = json.loads((output / "remedy-abbreviations.json").read_text(encoding="utf-8"))
+    abbreviation_path = args.abbreviations.expanduser().resolve() if args.abbreviations else output / "remedy-abbreviations.json"
+    abbreviation_payload = json.loads(abbreviation_path.read_text(encoding="utf-8"))
+    import hashlib
+    abbreviation_sha256 = hashlib.sha256(abbreviation_path.read_bytes()).hexdigest()
     if metadata.get("source_sha256") != SOURCE_SHA256 or index.get("source_file_sha256") != SOURCE_SHA256:
         parser.error("Source PDF fingerprint mismatch.")
     if index.get("dataset_id") != "kent-pdf-rubric-grade-candidate-index":
         parser.error("Unexpected candidate dataset.")
+    if index.get("abbreviation_index_sha256") is not None and index.get("abbreviation_index_sha256") != abbreviation_sha256:
+        parser.error("Candidate index does not match the supplied abbreviation index fingerprint.")
     if abbreviation_payload.get("dataset_id") != "kent-pdf-remedy-abbreviation-index":
         parser.error("Unexpected abbreviation dataset.")
     abbreviation_map = {item["abbreviation_as_printed"].casefold() for item in abbreviation_payload.get("records", [])}
