@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { kentSourceCatalog } from './data/kent-source-catalog';
+import KentSourceBrowser from './components/KentSourceBrowser';
 import type { KentRemedyAbbreviationRecord } from './data/kent-remedy-index';
 import { KentSourceDataNotInstalledError, loadKentRemedyAbbreviationIndex } from './lib/kentRemedyIndexLoader';
 import {
@@ -59,6 +60,7 @@ function App() {
   const [remedyIndexStatus, setRemedyIndexStatus] = useState<'idle' | 'loading' | 'loaded' | 'missing' | 'error'>('idle');
   const [remedyIndexError, setRemedyIndexError] = useState('');
   const [remedyQuery, setRemedyQuery] = useState('');
+  const [sourceChapter, setSourceChapter] = useState<{ id: string; title: string } | null>(null);
 
   useEffect(() => {
     if (page !== 'materia') return;
@@ -358,6 +360,7 @@ function App() {
                         Page {chapter.pageSummaryDiscrepancy.summaryPdfPage} summary lists {chapter.pageSummaryDiscrepancy.summaryBookPageStart}–{chapter.pageSummaryDiscrepancy.summaryBookPageEnd}; contents page {kentSourceCatalog.contentsPdfPage} lists {chapter.bookPageStart}–{chapter.bookPageEnd}.
                       </div>
                     )}
+                    <button className="open-chapter-source" onClick={() => setSourceChapter({ id: chapter.id, title: chapter.title })}>Browse source pages <ChevronDown size={13} /></button>
                   </article>
                 ))}
               </div>
