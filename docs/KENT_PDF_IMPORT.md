@@ -134,3 +134,12 @@ cp "$HOME/Curiva/kent-source-chunks/structured/verified-rubric-remedy-grades.jso
 Restart the Vite dev server or refresh the app. The repertorization matrix will then load only manually reviewed rubric/remedy/grade pairs.
 
 The builder checks that the review export belongs to the exact supplied PDF SHA-256, every remedy abbreviation exists in that PDF's own abbreviation index, every record has a source-page check and grade 1–3, and conflicting grades for the same exact rubric/remedy pair are withheld. It never makes a rubric or remedy from outside the PDF.
+
+
+For visual proofing, also copy your original PDF into the local app data folder:
+
+```bash
+cp "$HOME/storage/shared/Download/J.T. Kent s Repertory.pdf" public/data/kent/source.pdf
+```
+
+The source reader and grade-candidate review cards then provide an **Open original PDF page** link for the exact source page. The file is local-only and is not committed to GitHub.
