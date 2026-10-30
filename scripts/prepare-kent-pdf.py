@@ -151,6 +151,7 @@ def main() -> None:
             parser.error("Section map does not cover PDF pages: " + str(missing_section_pages[:20]))
 
         xml_pages = 0
+        xml_page_numbers = set()
         # pdftohtml may define a font only once and reuse its ID on later pages.
         # Keep a document-wide map; resetting per page loses italic/color grade evidence.
         font_map = {}
@@ -161,6 +162,9 @@ def main() -> None:
             if page_no < 1 or page_no > page_count:
                 page.clear()
                 continue
+            if page_no in xml_page_numbers:
+                parser.error("Duplicate layout XML page number: " + str(page_no))
+            xml_page_numbers.add(page_no)
             xml_pages += 1
             sid, title = section_for_page[page_no]
             for fs in page.findall("fontspec"):
@@ -209,6 +213,9 @@ def main() -> None:
             page.clear()
         for writer in writers.values():
             writer.close()
+        missing_xml_pages = sorted(set(range(1, page_count + 1)) - xml_page_numbers)
+        if missing_xml_pages:
+            parser.error("Layout XML is missing PDF pages: " + str(missing_xml_pages[:20]))
         if xml_pages != page_count:
             parser.error("Layout extraction page count mismatch: processed " + str(xml_pages) + ", expected " + str(page_count))
 
