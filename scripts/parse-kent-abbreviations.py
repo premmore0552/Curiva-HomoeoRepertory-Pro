@@ -42,7 +42,7 @@ def load_pages(source: Path) -> list[dict]:
     return [pages[number] for number in range(FIRST_PAGE, LAST_PAGE + 1)]
 
 
-def parse(source: Path) -> tuple[list[dict], list[dict]]:
+def parse(source: Path) -> tuple[list[dict], list[dict], list[dict]]:
     records: list[dict] = []
     continuations: list[dict] = []
     flagged_lines: list[dict] = []
