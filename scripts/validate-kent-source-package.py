@@ -54,6 +54,8 @@ class PackageReader:
         safe = safe_relative_path(relative_path)
         if self.kind == "directory":
             target = self.source.joinpath(*PurePosixPath(safe).parts)
+            if not target.resolve().is_relative_to(self.source):
+                raise ValidationError("Package path escapes the source folder: " + safe)
             if not target.is_file():
                 raise ValidationError("Missing package file: " + safe)
             return target.read_bytes()
@@ -89,8 +91,18 @@ class PackageReader:
 
 
 def safe_relative_path(value: str) -> str:
+    # Package paths are portable POSIX-style paths, even when validated on Windows.
+    if (
+        not value
+        or "\\\\" in value
+        or "\\x00" in value
+        or ":" in value
+        or value.startswith("/")
+        or any(part in ("", ".", "..") for part in value.split("/"))
+    ):
+        raise ValidationError("Unsafe package path: " + repr(value))
     path = PurePosixPath(value)
-    if not value or path.is_absolute() or any(part in ("", ".", "..") for part in path.parts):
+    if path.is_absolute():
         raise ValidationError("Unsafe package path: " + repr(value))
     return path.as_posix()
 
@@ -264,6 +276,7 @@ def validate_package(source: Path, pdf: Path | None = None, for_publication: boo
         if integrity.get("grade_inference_applied") is not False:
             raise ValidationError("Source package must preserve grade evidence without assigning inferred grades.")
 
+        manifest_verified = validate_manifest(reader)
         rights = metadata.get("rights_and_provenance", {})
         if not isinstance(rights, dict):
             rights = {}
@@ -271,13 +284,13 @@ def validate_package(source: Path, pdf: Path | None = None, for_publication: boo
         if for_publication:
             allowed = {"permission_confirmed", "public_domain_confirmed", "licensed_for_redistribution"}
             required = ("rights_holder", "evidence_reference", "confirmed_on")
+            if not manifest_verified:
+                raise ValidationError("Publication blocked: a valid SHA-256 manifest is required.")
             if redistribution_status not in allowed or not all(rights.get(key) for key in required):
                 raise ValidationError(
                     "Publication blocked: redistribution permission is unconfirmed. Record the rights holder, "
                     "evidence reference and confirmation date in source-metadata.json only after obtaining reliable permission."
                 )
-
-        manifest_verified = validate_manifest(reader)
         return {
             "valid": True,
             "source_sha256": source_hash,
@@ -352,7 +365,8 @@ def main() -> int:
             raise ValidationError("--zip can only be used together with --write-manifest.")
         if args.write_manifest:
             write_manifest(args.source, args.zip)
-        result = validate_package(args.source, args.pdf, args.for_publication)
+        validation_target = args.zip if args.write_manifest and args.zip else args.source
+        result = validate_package(validation_target, args.pdf, args.for_publication)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
     except (ValidationError, OSError, json.JSONDecodeError, zipfile.BadZipFile) as exc:
