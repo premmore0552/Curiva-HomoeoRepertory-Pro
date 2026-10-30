@@ -5,3 +5,7 @@ dist/
 .env.*
 !.env.example
 .DS_Store
+
+# Source-derived book data stays local until redistribution rights are confirmed.
+public/data/kent/
+kent-source-chunks/
