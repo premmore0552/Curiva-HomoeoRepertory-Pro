@@ -65,7 +65,7 @@ type CandidateRecord = {
   verification_status: "needs_review";
 };
 
-type ReviewStatus = "verified" | "rejected" | "uncertain";
+type ReviewStatus = "verified" | "rejected" | "uncertain" | "duplicate";
 
 type CandidateReview = {
   candidateId: string;
@@ -76,6 +76,7 @@ type CandidateReview = {
   sourcePdfPage: number;
   sourceChecked: boolean;
   reviewStatus: ReviewStatus;
+  duplicateOfCandidateId?: string;
   reviewNote?: string;
   savedAt: string;
 };
@@ -192,6 +193,7 @@ function CandidateReviewCard({
   const [sourceChecked, setSourceChecked] = useState(saved?.sourceChecked ?? false);
   const [reviewStatus, setReviewStatus] = useState<ReviewStatus>(saved?.reviewStatus ?? "verified");
   const [reviewNote, setReviewNote] = useState(saved?.reviewNote ?? "");
+  const [duplicateOfCandidateId, setDuplicateOfCandidateId] = useState(saved?.duplicateOfCandidateId ?? "");
 
   useEffect(() => {
     setRubric(saved?.rubricText ?? candidate.suggested_rubric_context ?? "");
@@ -199,6 +201,7 @@ function CandidateReviewCard({
     setSourceChecked(saved?.sourceChecked ?? false);
     setReviewStatus(saved?.reviewStatus ?? "verified");
     setReviewNote(saved?.reviewNote ?? "");
+    setDuplicateOfCandidateId(saved?.duplicateOfCandidateId ?? "");
   }, [candidate.id, saved]);
 
   const gradeLabel = candidate.candidate_grade_from_source_key === null
@@ -214,6 +217,7 @@ function CandidateReviewCard({
     sourcePdfPage: candidate.source_pdf_page,
     sourceChecked,
     reviewStatus: status,
+    duplicateOfCandidateId: duplicateOfCandidateId.trim() || undefined,
     reviewNote: reviewNote.trim(),
     savedAt: new Date().toISOString(),
   });
@@ -256,6 +260,10 @@ function CandidateReviewCard({
         </label>
       </div>
       <label className="candidate-rubric-field">
+        Duplicate of candidate ID (only after checking both source occurrences)
+        <input value={duplicateOfCandidateId} onChange={(event) => setDuplicateOfCandidateId(event.target.value)} placeholder="Paste the original candidate ID…" />
+      </label>
+      <label className="candidate-rubric-field">
         Review note (required when overriding the suggested grade)
         <input value={reviewNote} onChange={(event) => setReviewNote(event.target.value)} placeholder="Explain ambiguity, correction or rejection…" />
       </label>
@@ -265,6 +273,7 @@ function CandidateReviewCard({
         </button>
         <button className="secondary-button" disabled={!sourceChecked} onClick={() => saveDecision("uncertain")}>Mark uncertain</button>
         <button className="secondary-button" disabled={!sourceChecked} onClick={() => saveDecision("rejected")}>Reject candidate</button>
+        <button className="secondary-button" disabled={!sourceChecked || !duplicateOfCandidateId.trim() || duplicateOfCandidateId.trim() === candidate.id} onClick={() => saveDecision("duplicate")}>Mark confirmed duplicate</button>
       </div>
     </article>
   );
@@ -287,7 +296,7 @@ export default function KentSourceBrowser({
   const [selectedPageNumber, setSelectedPageNumber] = useState<number | null>(null);
   const [query, setQuery] = useState("");
   const [candidateQuery, setCandidateQuery] = useState("");
-  const [candidateStatusFilter, setCandidateStatusFilter] = useState<"pending" | "verified" | "uncertain" | "rejected" | "all">("pending");
+  const [candidateStatusFilter, setCandidateStatusFilter] = useState<"pending" | "verified" | "uncertain" | "rejected" | "duplicate" | "all">("pending");
   const [candidateLimit, setCandidateLimit] = useState(50);
   const [view, setView] = useState<"source" | "candidates">("source");
   const [loadingIndex, setLoadingIndex] = useState(true);
@@ -548,7 +557,7 @@ export default function KentSourceBrowser({
             </div>
             <div className="candidate-review-summary">
               <span>{reviewedTotal} total saved decisions on this device</span>
-              <span>{globalReviewCounts.verified ?? 0} verified · {globalReviewCounts.uncertain ?? 0} uncertain · {globalReviewCounts.rejected ?? 0} rejected</span>
+              <span>{globalReviewCounts.verified ?? 0} verified · {globalReviewCounts.uncertain ?? 0} uncertain · {globalReviewCounts.rejected ?? 0} rejected · {globalReviewCounts.duplicate ?? 0} duplicates</span>
             </div>
             <div className="rubric-search-box kent-source-search"><Search size={16} /><input aria-label="Search grade candidates" value={candidateQuery} onChange={(event) => setCandidateQuery(event.target.value)} placeholder="Search remedy abbreviation or source line…" /></div>
             <label className="candidate-grade-field">
@@ -558,6 +567,7 @@ export default function KentSourceBrowser({
                 <option value="verified">Verified</option>
                 <option value="uncertain">Uncertain</option>
                 <option value="rejected">Rejected</option>
+                <option value="duplicate">Confirmed duplicates</option>
                 <option value="all">All candidates</option>
               </select>
             </label>
