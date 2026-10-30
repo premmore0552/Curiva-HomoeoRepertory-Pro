@@ -173,7 +173,7 @@ def main() -> None:
         "continuation_lines_joined": continuations,
         "unclassified_layout_lines": flagged,
         "review_required": True,
-        "reason": "OCR/layout transcriptions must still be checked against the PDF page images.",
+        "reason": "PDF text/layout transcriptions must still be checked against the source page images.",
     }
     (out_dir / "remedy-abbreviations-qc.json").write_text(
         json.dumps(qc, ensure_ascii=False, indent=2), encoding="utf-8"
