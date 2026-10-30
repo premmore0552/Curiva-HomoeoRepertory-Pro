@@ -73,12 +73,12 @@ class KentPhase2VerifiedDatabaseTests(unittest.TestCase):
         abbreviation_path = structured / "verified-remedy-abbreviations.json"
         abbreviation_path.write_text(json.dumps(abbreviations), encoding="utf-8")
         candidates = [
-            {"id": "sample-001-p0066-one", "source_pdf_page": 66, "source_section_id": "mind", "matched_abbreviation_as_printed_in_index": "Nat-m.", "token_as_printed_in_rubric": "Nat-m.", "candidate_grade_from_source_key": 1, "grade_evidence": "ordinary_black_layout_span"},
-            {"id": "sample-001-p0067-two", "source_pdf_page": 67, "source_section_id": "mind", "matched_abbreviation_as_printed_in_index": "Nat-m.", "token_as_printed_in_rubric": "Nat-m.", "candidate_grade_from_source_key": 2, "grade_evidence": "italic_layout_span"},
-            {"id": "sample-001-p0068-three", "source_pdf_page": 68, "source_section_id": "mind", "matched_abbreviation_as_printed_in_index": "Nat-m.", "token_as_printed_in_rubric": "Nat-m.", "candidate_grade_from_source_key": 3, "grade_evidence": "red_uppercase_token_as_printed"},
-            {"id": "sample-001-p0069-four", "source_pdf_page": 69, "source_section_id": "mind", "matched_abbreviation_as_printed_in_index": "Nat-m.", "token_as_printed_in_rubric": "Nat-m.", "candidate_grade_from_source_key": None, "grade_evidence": "unrecognised_color_or_style_review"},
-            {"id": "sample-001-p0070-five", "source_pdf_page": 70, "source_section_id": "mind", "matched_abbreviation_as_printed_in_index": "Nat-m.", "token_as_printed_in_rubric": "Nat-m.", "candidate_grade_from_source_key": 1, "grade_evidence": "ordinary_black_layout_span"},
-            {"id": "sample-001-p0071-six", "source_pdf_page": 71, "source_section_id": "mind", "matched_abbreviation_as_printed_in_index": "Nat-m.", "token_as_printed_in_rubric": "Nat-m.", "candidate_grade_from_source_key": 1, "grade_evidence": "ordinary_black_layout_span"},
+            {"id": "sample-001-p0066-y010000-x010800-i001-t00", "source_pdf_page": 66, "source_section_id": "mind", "matched_abbreviation_as_printed_in_index": "Nat-m.", "token_as_printed_in_rubric": "Nat-m.", "candidate_grade_from_source_key": 1, "grade_evidence": "ordinary_black_layout_span"},
+            {"id": "sample-001-p0067-y010000-x010800-i001-t00", "source_pdf_page": 67, "source_section_id": "mind", "matched_abbreviation_as_printed_in_index": "Nat-m.", "token_as_printed_in_rubric": "Nat-m.", "candidate_grade_from_source_key": 2, "grade_evidence": "italic_layout_span"},
+            {"id": "sample-001-p0068-y010000-x010800-i001-t00", "source_pdf_page": 68, "source_section_id": "mind", "matched_abbreviation_as_printed_in_index": "Nat-m.", "token_as_printed_in_rubric": "Nat-m.", "candidate_grade_from_source_key": 3, "grade_evidence": "red_uppercase_token_as_printed"},
+            {"id": "sample-001-p0069-y010000-x010800-i001-t00", "source_pdf_page": 69, "source_section_id": "mind", "matched_abbreviation_as_printed_in_index": "Nat-m.", "token_as_printed_in_rubric": "Nat-m.", "candidate_grade_from_source_key": None, "grade_evidence": "unrecognised_color_or_style_review"},
+            {"id": "sample-001-p0070-y010000-x010800-i001-t00", "source_pdf_page": 70, "source_section_id": "mind", "matched_abbreviation_as_printed_in_index": "Nat-m.", "token_as_printed_in_rubric": "Nat-m.", "candidate_grade_from_source_key": 1, "grade_evidence": "ordinary_black_layout_span"},
+            {"id": "sample-001-p0071-y010000-x010800-i001-t00", "source_pdf_page": 71, "source_section_id": "mind", "matched_abbreviation_as_printed_in_index": "Nat-m.", "token_as_printed_in_rubric": "Nat-m.", "candidate_grade_from_source_key": 1, "grade_evidence": "ordinary_black_layout_span"},
         ]
         (structured / "grade-candidates" / "sample.jsonl").write_text(
             "".join(json.dumps(item) + "\n" for item in candidates), encoding="utf-8"
@@ -100,12 +100,12 @@ class KentPhase2VerifiedDatabaseTests(unittest.TestCase):
             }],
         }), encoding="utf-8")
         decisions = [
-            {"candidateId": "sample-001-p0066-one", "remedyAbbreviation": "Nat-m.", "rubricPath": ["MIND", "ABRUPT"], "approvedGrade": 1, "sourcePdfPage": 66, "sourceChecked": True, "reviewStatus": "verified", "savedAt": "2026-10-31T00:00:00Z"},
-            {"candidateId": "sample-001-p0067-two", "remedyAbbreviation": "Nat-m.", "rubricPath": ["MIND", "ABRUPT"], "approvedGrade": 2, "sourcePdfPage": 67, "sourceChecked": True, "reviewStatus": "verified", "savedAt": "2026-10-31T00:01:00Z"},
-            {"candidateId": "sample-001-p0068-three", "remedyAbbreviation": "Nat-m.", "rubricPath": ["MIND", "ABSENT-MINDED"], "approvedGrade": 3, "sourcePdfPage": 68, "sourceChecked": True, "reviewStatus": "verified", "savedAt": "2026-10-31T00:02:00Z"},
-            {"candidateId": "sample-001-p0069-four", "remedyAbbreviation": "Nat-m.", "sourcePdfPage": 69, "sourceChecked": True, "reviewStatus": "uncertain", "reviewNote": "Style not clear."},
-            {"candidateId": "sample-001-p0070-five", "remedyAbbreviation": "Nat-m.", "sourcePdfPage": 70, "sourceChecked": True, "reviewStatus": "rejected", "reviewNote": "Not a rubric remedy occurrence."},
-            {"candidateId": "sample-001-p0071-six", "remedyAbbreviation": "Nat-m.", "sourcePdfPage": 71, "sourceChecked": True, "reviewStatus": "duplicate", "duplicateOfCandidateId": "sample-001-p0068-three", "reviewNote": "Same printed occurrence duplicated in extraction."},
+            {"candidateId": "sample-001-p0066-y010000-x010800-i001-t00", "remedyAbbreviation": "Nat-m.", "rubricPath": ["MIND", "ABRUPT"], "approvedGrade": 1, "sourcePdfPage": 66, "sourceChecked": True, "reviewStatus": "verified", "savedAt": "2026-10-31T00:00:00Z"},
+            {"candidateId": "sample-001-p0067-y010000-x010800-i001-t00", "remedyAbbreviation": "Nat-m.", "rubricPath": ["MIND", "ABRUPT"], "approvedGrade": 2, "sourcePdfPage": 67, "sourceChecked": True, "reviewStatus": "verified", "savedAt": "2026-10-31T00:01:00Z"},
+            {"candidateId": "sample-001-p0068-y010000-x010800-i001-t00", "remedyAbbreviation": "Nat-m.", "rubricPath": ["MIND", "ABSENT-MINDED"], "approvedGrade": 3, "sourcePdfPage": 68, "sourceChecked": True, "reviewStatus": "verified", "savedAt": "2026-10-31T00:02:00Z"},
+            {"candidateId": "sample-001-p0069-y010000-x010800-i001-t00", "remedyAbbreviation": "Nat-m.", "sourcePdfPage": 69, "sourceChecked": True, "reviewStatus": "uncertain", "reviewNote": "Style not clear."},
+            {"candidateId": "sample-001-p0070-y010000-x010800-i001-t00", "remedyAbbreviation": "Nat-m.", "sourcePdfPage": 70, "sourceChecked": True, "reviewStatus": "rejected", "reviewNote": "Not a rubric remedy occurrence."},
+            {"candidateId": "sample-001-p0071-y010000-x010800-i001-t00", "remedyAbbreviation": "Nat-m.", "sourcePdfPage": 71, "sourceChecked": True, "reviewStatus": "duplicate", "duplicateOfCandidateId": "sample-001-p0068-y010000-x010800-i001-t00", "reviewNote": "Same printed occurrence duplicated in extraction."},
         ]
         reviews = {
             "dataset_id": "curiva-kent-user-verified-review-decisions",
@@ -134,7 +134,7 @@ class KentPhase2VerifiedDatabaseTests(unittest.TestCase):
         self.assertEqual(qc["rejected_decisions"], 1)
         self.assertEqual(qc["uncertain_decisions"], 1)
         self.assertEqual(qc["confirmed_duplicate_decisions"], 1)
-        self.assertEqual(qc["duplicate_decisions"][0]["duplicate_of_candidate_id"], "sample-001-p0068-three")
+        self.assertEqual(qc["duplicate_decisions"][0]["duplicate_of_candidate_id"], "sample-001-p0068-y010000-x010800-i001-t00")
         leaf = next(item for item in database["rubrics"] if item["text_as_entered_from_pdf"] == "ABSENT-MINDED")
         self.assertEqual(leaf["parent_rubric_id"], next(item["id"] for item in database["rubrics"] if item["text_as_entered_from_pdf"] == "MIND"))
         self.assertEqual(leaf["grades"][0]["grade"], 3)
