@@ -305,7 +305,6 @@ def main() -> None:
         "candidate_count": total_candidates,
         "candidate_counts_by_grade_evidence": dict(grade_counts),
         "candidate_counts_by_chapter": dict(chapter_counts),
-        "candidate_counts_by_chapter": dict(chapter_counts),
         "pages_without_layout_spans": empty_pages,
         "possible_wrapped_token_fragments": wrapped_fragments,
         "rubric_hierarchy_assigned": False,
