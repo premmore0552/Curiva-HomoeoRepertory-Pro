@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -60,12 +61,17 @@ class KentPhase2VerifiedDatabaseTests(unittest.TestCase):
         abbreviations = {
             "dataset_id": "kent-pdf-remedy-abbreviation-index",
             "duplicate_abbreviation_count": 0,
+            "source_file_sha256": SOURCE_SHA,
+            "proofreading": {"status": "complete"},
             "records": [{
+                "id": "abbrev-1",
                 "abbreviation_as_printed": "Nat-m.",
                 "full_name_as_printed": "Natrum Muriaticum",
+                "verification_status": "verified",
             }],
         }
-        (structured / "remedy-abbreviations.json").write_text(json.dumps(abbreviations), encoding="utf-8")
+        abbreviation_path = structured / "verified-remedy-abbreviations.json"
+        abbreviation_path.write_text(json.dumps(abbreviations), encoding="utf-8")
         candidates = [
             {"id": "one", "source_pdf_page": 66, "source_section_id": "mind", "matched_abbreviation_as_printed_in_index": "Nat-m.", "token_as_printed_in_rubric": "Nat-m.", "candidate_grade_from_source_key": 1, "grade_evidence": "ordinary_black_layout_span"},
             {"id": "two", "source_pdf_page": 67, "source_section_id": "mind", "matched_abbreviation_as_printed_in_index": "Nat-m.", "token_as_printed_in_rubric": "Nat-m.", "candidate_grade_from_source_key": 2, "grade_evidence": "italic_layout_span"},
@@ -79,6 +85,8 @@ class KentPhase2VerifiedDatabaseTests(unittest.TestCase):
         (structured / "grade-candidates-index.json").write_text(json.dumps({
             "dataset_id": "kent-pdf-rubric-grade-candidate-index",
             "source_file_sha256": SOURCE_SHA,
+            "abbreviation_index_sha256": hashlib.sha256(abbreviation_path.read_bytes()).hexdigest(),
+            "abbreviation_index_verified": True,
             "candidate_count": len(candidates),
             "chunks": [{"file": "grade-candidates/sample.jsonl", "candidate_count": len(candidates)}],
         }), encoding="utf-8")
@@ -95,7 +103,7 @@ class KentPhase2VerifiedDatabaseTests(unittest.TestCase):
             "records": decisions,
         }
         (root / "reviews.json").write_text(json.dumps(reviews), encoding="utf-8")
-        return root / "reviews.json", structured / "remedy-abbreviations.json", structured / "grade-candidates-index.json"
+        return root / "reviews.json", abbreviation_path, structured / "grade-candidates-index.json"
 
     def test_builder_validates_candidate_provenance_and_builds_hierarchy(self):
         with tempfile.TemporaryDirectory() as temp:
