@@ -476,7 +476,10 @@ function App() {
           {remedyIndexStatus === 'missing' && <div className="empty-library-note"><strong>Source data file not installed.</strong><p>Copy the PDF-derived remedy-abbreviations.json file to public/data/kent/structured/remedy-abbreviations.json. It is included in the source-chunks ZIP under structured/.</p></div>}
           {remedyIndexStatus === 'error' && <div className="empty-library-note"><strong>Source index could not be loaded.</strong><p>{remedyIndexError}</p></div>}
           {remedyIndexStatus === 'loaded' && <>
-            <div className="remedy-index-summary">{filteredRemedyIndex.length} of {remedyIndex.length} printed abbreviation records · source PDF pages 10–18</div>
+            <div className="remedy-index-summary">
+              {filteredRemedyIndex.length} of {remedyIndex.length} printed abbreviation records · source PDF pages 10–18
+              <span>{remedyIndex.filter((item) => item.verification_status === "verified").length} proofread · {remedyIndex.filter((item) => item.verification_status !== "verified").length} awaiting proofreading</span>
+            </div>
             <details className="source-style-details">
               <summary>Proofread the 650 source abbreviation entries</summary>
               <p className="source-style-legend">Each entry must be checked against the original PDF page. This local review does not silently correct or approve any transcription.</p>
@@ -491,7 +494,7 @@ function App() {
                     <span>{record.full_name_as_printed}</span>
                     <small>PDF page {record.source_pdf_page}{record.source_pdf_pages.length > 1 ? ' · continues on page ' + record.source_pdf_pages[1] : ''}</small>
                   </div>
-                  <span className="coming-label">PDF transcription</span>
+                  <span className="coming-label">{record.verification_status === "verified" ? "Source checked" : "Transcription not proofread"}</span>
                 </article>
               ))}
               {!filteredRemedyIndex.length && <div className="empty-library-note">No source entry matches that search.</div>}
