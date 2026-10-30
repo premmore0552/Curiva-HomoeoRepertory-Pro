@@ -49,6 +49,8 @@ type CandidateRecord = {
   matched_abbreviation_as_printed_in_index: string;
   candidate_grade_from_source_key: number | null;
   grade_evidence: string;
+  suggested_rubric_context?: string | null;
+  suggested_context_method?: string;
   source_span: {
     text: string;
     top: number;
@@ -170,14 +172,14 @@ function CandidateReviewCard({
   saved?: CandidateReview;
   onSave: (review: CandidateReview) => void;
 }) {
-  const [rubric, setRubric] = useState(saved?.rubricText ?? "");
+  const [rubric, setRubric] = useState(saved?.rubricText ?? candidate.suggested_rubric_context ?? "");
   const [grade, setGrade] = useState<number | "">(
     saved?.approvedGrade ?? candidate.candidate_grade_from_source_key ?? "",
   );
   const [sourceChecked, setSourceChecked] = useState(saved?.sourceChecked ?? false);
 
   useEffect(() => {
-    setRubric(saved?.rubricText ?? "");
+    setRubric(saved?.rubricText ?? candidate.suggested_rubric_context ?? "");
     setGrade(saved?.approvedGrade ?? candidate.candidate_grade_from_source_key ?? "");
     setSourceChecked(saved?.sourceChecked ?? false);
   }, [candidate.id, saved]);
@@ -197,13 +199,14 @@ function CandidateReviewCard({
           <span className="candidate-pending-label">Needs review</span>}
       </div>
       <p className="candidate-source-line">{candidate.line_text_as_extracted || candidate.source_span.text}</p>
+      {candidate.suggested_rubric_context && <div className="candidate-context-hint">Suggested from source heading/line layout · {candidate.suggested_context_method?.replaceAll("_", " ")}</div>}
       <div className="candidate-style-evidence">
         Source token: <strong>{candidate.token_as_printed_in_rubric}</strong>
         <span>{candidate.grade_evidence.replaceAll("_", " ")}</span>
         <small>{candidate.source_span.color} · {candidate.source_span.font_family}{candidate.source_span.italic ? " · italic" : ""}</small>
       </div>
       <label className="candidate-rubric-field">
-        Exact rubric path as printed in the PDF
+        Suggested rubric path — confirm or correct against the PDF
         <input value={rubric} onChange={(event) => setRubric(event.target.value)} placeholder="Enter rubric and parent path from source…" />
       </label>
       <div className="candidate-review-actions">
