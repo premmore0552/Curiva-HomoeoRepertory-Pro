@@ -125,7 +125,7 @@ class AbbreviationParserTests(unittest.TestCase):
                     {"text": "APIS.", "top": 204, "left": 322, "italic": False, "bold": True}
                 ]
             }
-            (root / "chunks" / "mind" / "mind-001.jsonl").write_text(json.dumps(page) + "\\n", encoding="utf-8")
+            (root / "chunks" / "mind" / "mind-001.jsonl").write_text(json.dumps(page) + "\n", encoding="utf-8")
             abbreviation_data = {
                 "dataset_id": "kent-pdf-remedy-abbreviation-index",
                 "duplicate_abbreviation_count": 0,
