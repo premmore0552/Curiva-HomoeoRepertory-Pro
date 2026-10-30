@@ -173,8 +173,8 @@ class KentPhase2VerifiedDatabaseTests(unittest.TestCase):
                 "--reviews", str(reviews), "--abbreviations", str(abbreviations),
                 "--candidate-index", str(candidate_index), "--out", str(root / "bad.json"),
             ], capture_output=True, text=True)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        qc = json.loads((root / "bad-qc.json").read_text(encoding="utf-8"))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            qc = json.loads((root / "bad-qc.json").read_text(encoding="utf-8"))
         self.assertEqual(qc["invalid_decisions"][0]["reason"], "source_page_does_not_match_candidate")
 
 
