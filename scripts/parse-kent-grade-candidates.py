@@ -22,16 +22,33 @@ TOKEN = re.compile(
 )
 
 
-def load_abbreviation_map(path: Path, require_verified: bool = False) -> dict[str, str]:
+def load_abbreviation_map(
+    path: Path,
+    require_verified: bool = False,
+    expected_source_sha256: str | None = None,
+) -> dict[str, str]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if payload.get("dataset_id") != "kent-pdf-remedy-abbreviation-index":
         raise ValueError("The abbreviation source is not the expected PDF-derived index.")
     if payload.get("duplicate_abbreviation_count") != 0:
         raise ValueError("The abbreviation index contains duplicate printed abbreviations.")
+    if require_verified:
+        proofreading = payload.get("proofreading")
+        if (
+            payload.get("source_file_sha256") != expected_source_sha256
+            or not isinstance(proofreading, dict)
+            or proofreading.get("status") not in {"partial", "complete"}
+            or proofreading.get("verified_record_count") != len(payload.get("records", []))
+        ):
+            raise ValueError("The supplied abbreviation index is not a matching source-proofread index.")
     result: dict[str, str] = {}
     for record in payload.get("records", []):
-        if require_verified and record.get("verification_status") != "verified":
-            raise ValueError("The proofread abbreviation index contains a non-verified record.")
+        if require_verified and (
+            record.get("verification_status") != "verified"
+            or not isinstance(record.get("full_name_as_printed"), str)
+            or not record.get("full_name_as_printed").strip()
+        ):
+            raise ValueError("The proofread abbreviation index contains a non-verified or incomplete record.")
         abbreviation = record.get("abbreviation_as_printed")
         if not isinstance(abbreviation, str) or not abbreviation:
             raise ValueError("An abbreviation record has no printed abbreviation.")
@@ -233,7 +250,13 @@ def main() -> None:
     if not index_path.is_file():
         parser.error("Missing section-index.json in source package.")
     section_index = json.loads(index_path.read_text(encoding="utf-8"))
-    abbreviations = load_abbreviation_map(abbreviation_path, require_verified=args.require_verified_abbreviations)
+    metadata_path = source / "source-metadata.json"
+    source_hash = json.loads(metadata_path.read_text(encoding="utf-8")).get("source_sha256") if metadata_path.is_file() else None
+    abbreviations = load_abbreviation_map(
+        abbreviation_path,
+        require_verified=args.require_verified_abbreviations,
+        expected_source_sha256=source_hash,
+    )
     abbreviation_index_sha256 = hashlib.sha256(abbreviation_path.read_bytes()).hexdigest()
 
     total_pages = 0
@@ -279,10 +302,6 @@ def main() -> None:
             "file": destination.relative_to(output_dir.parent).as_posix(),
         })
 
-    metadata_path = source / "source-metadata.json"
-    source_hash = None
-    if metadata_path.is_file():
-        source_hash = json.loads(metadata_path.read_text(encoding="utf-8")).get("source_sha256")
     output_dir.parent.mkdir(parents=True, exist_ok=True)
     dataset_index = {
         "dataset_id": "kent-pdf-rubric-grade-candidate-index",
