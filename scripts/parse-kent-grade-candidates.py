@@ -16,14 +16,6 @@ from typing import Iterable
 
 TOKEN = re.compile(r"(?<![\w-])(?P<token>[A-Za-zÀ-ÖØ-öø-ÿÆæŒœ0-9]+(?:-[A-Za-zÀ-ÖØ-öø-ÿÆæŒœ0-9]+)*\.)(?!\w)", re.UNICODE)
 
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
-
-
 def load_abbreviation_map(path: Path) -> dict[str, str]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if payload.get("dataset_id") != "kent-pdf-remedy-abbreviation-index":
@@ -63,16 +55,24 @@ def group_lines(items: list[dict], tolerance: float = 3.0) -> list[list[dict]]:
 
 
 def grade_evidence(token: str, item: dict) -> tuple[int | None, str]:
+    """Apply the printed grade key only when both letter case and PDF style agree."""
     letters = [character for character in token if character.isalpha()]
     uppercase = bool(letters) and all(character.isupper() for character in letters)
     italic = bool(item.get("italic", False))
-    if uppercase and italic:
+    color = str(item.get("color", "")).strip().lower()
+    is_red = color in {"#ff0000", "#f00", "red"}
+    is_black = color in {"#000000", "#000", "black"}
+    if italic and uppercase:
         return None, "conflicting_uppercase_and_italic_evidence"
-    if uppercase:
-        return 3, "uppercase_token_as_printed"
     if italic:
         return 2, "italic_layout_span"
-    return 1, "ordinary_layout_span"
+    if uppercase and is_red:
+        return 3, "red_uppercase_token_as_printed"
+    if uppercase:
+        return None, "uppercase_token_without_red_grade_style_review"
+    if is_black:
+        return 1, "ordinary_black_layout_span"
+    return None, "unrecognised_color_or_style_review"
 
 
 def iter_chapter_pages(source: Path, section_index: dict) -> Iterable[dict]:
