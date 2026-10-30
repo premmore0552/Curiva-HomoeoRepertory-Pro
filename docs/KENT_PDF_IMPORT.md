@@ -117,3 +117,13 @@ The browser's “Open original PDF” links use /data/kent/source.pdf#page=.... 
 ## What Phase 1 does not claim
 
 Phase 1 prepares a traceable source package. It does not establish the copyright status, verify every printed word, create a complete rubric hierarchy, approve candidate grades or make a clinically complete repertory. Those tasks require documented permission where applicable and manual source review.
+
+## Refresh the manifest after every package change
+
+The first manifest is created immediately after source extraction. Parsing the abbreviation table and candidate records later adds new files under `structured/`; therefore, after Step 4 finishes, run the manifest command again:
+
+~~~bash
+python scripts/validate-kent-source-package.py "$HOME/Curiva/kent-source-chunks" --pdf "$HOME/storage/shared/Download/J.T. Kent s Repertory.pdf" --write-manifest --zip "$HOME/Curiva/Kent_Repertory_Source_Chunks.zip"
+~~~
+
+This rebuilds the local ZIP and checks the ZIP that was just written. Repeat this command whenever you add, remove or change a file in the source package. The manifest records file integrity, not the correctness or copyright permission of the book-derived contents.
