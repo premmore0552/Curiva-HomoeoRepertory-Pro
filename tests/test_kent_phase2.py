@@ -62,7 +62,14 @@ class KentPhase2VerifiedDatabaseTests(unittest.TestCase):
             "dataset_id": "kent-pdf-remedy-abbreviation-index",
             "duplicate_abbreviation_count": 0,
             "source_file_sha256": SOURCE_SHA,
-            "proofreading": {"status": "complete"},
+            "proofreading": {
+                "status": "complete",
+                "source_record_count": 1,
+                "verified_record_count": 1,
+                "uncertain_record_count": 0,
+                "rejected_record_count": 0,
+                "pending_record_count": 0,
+            },
             "records": [{
                 "id": "abbrev-1",
                 "abbreviation_as_printed": "Nat-m.",
