@@ -25,9 +25,9 @@ cp "$HOME/Curiva/kent-source-chunks/section-index.json" public/data/kent/section
 cp -R "$HOME/Curiva/kent-source-chunks/chunks" public/data/kent/
 cp "$HOME/storage/shared/Download/J.T. Kent s Repertory.pdf" public/data/kent/source.pdf
 cp "$HOME/Curiva/kent-source-chunks/structured/remedy-abbreviations.json" public/data/kent/structured/remedy-abbreviations.json
-cp "$HOME/Curiva/kent-source-chunks/structured/grade-candidates-index.json" public/data/kent/structured/grade-candidates-index.json
-cp -R "$HOME/Curiva/kent-source-chunks/structured/grade-candidates" public/data/kent/structured/
 ~~~
+
+Do not install raw candidate chunks yet. The candidate-review tab only accepts chunks regenerated from the proofread abbreviation index in Step 4.
 
 The source PDF must be saved as `public/data/kent/source.pdf` locally so the source-page links work. The app data directory is ignored by Git; do not force-add it.
 
