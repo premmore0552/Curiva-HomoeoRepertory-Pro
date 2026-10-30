@@ -9,6 +9,7 @@ the source importer.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 from collections import Counter
@@ -21,7 +22,7 @@ TOKEN = re.compile(
 )
 
 
-def load_abbreviation_map(path: Path) -> dict[str, str]:
+def load_abbreviation_map(path: Path, require_verified: bool = False) -> dict[str, str]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if payload.get("dataset_id") != "kent-pdf-remedy-abbreviation-index":
         raise ValueError("The abbreviation source is not the expected PDF-derived index.")
@@ -29,6 +30,8 @@ def load_abbreviation_map(path: Path) -> dict[str, str]:
         raise ValueError("The abbreviation index contains duplicate printed abbreviations.")
     result: dict[str, str] = {}
     for record in payload.get("records", []):
+        if require_verified and record.get("verification_status") != "verified":
+            raise ValueError("The proofread abbreviation index contains a non-verified record.")
         abbreviation = record.get("abbreviation_as_printed")
         if not isinstance(abbreviation, str) or not abbreviation:
             raise ValueError("An abbreviation record has no printed abbreviation.")
@@ -219,6 +222,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Extract lazy source-grade candidate chunks from the supplied PDF.")
     parser.add_argument("--source", type=Path, default=Path("kent-source-chunks"))
     parser.add_argument("--abbreviations", type=Path, default=None)
+    parser.add_argument("--require-verified-abbreviations", action="store_true", help="Refuse unproofread abbreviation entries")
     parser.add_argument("--out-dir", type=Path, default=None)
     args = parser.parse_args()
 
@@ -229,7 +233,8 @@ def main() -> None:
     if not index_path.is_file():
         parser.error("Missing section-index.json in source package.")
     section_index = json.loads(index_path.read_text(encoding="utf-8"))
-    abbreviations = load_abbreviation_map(abbreviation_path)
+    abbreviations = load_abbreviation_map(abbreviation_path, require_verified=args.require_verified_abbreviations)
+    abbreviation_index_sha256 = hashlib.sha256(abbreviation_path.read_bytes()).hexdigest()
 
     total_pages = 0
     total_candidates = 0
@@ -282,9 +287,12 @@ def main() -> None:
     dataset_index = {
         "dataset_id": "kent-pdf-rubric-grade-candidate-index",
         "source_file_sha256": source_hash,
+        "abbreviation_index_sha256": abbreviation_index_sha256,
+        "abbreviation_index_verified": args.require_verified_abbreviations,
         "candidate_count": total_candidates,
         "candidate_id_scheme": "chunk-page-layout-coordinate-span-token-v1",
         "verification_status": "needs_review",
+        "review_status_counts": {"pending": total_candidates, "verified": 0, "rejected": 0, "uncertain": 0},
         "review_status_counts": {"pending": total_candidates, "verified": 0, "rejected": 0, "uncertain": 0},
         "rubric_hierarchy_assigned": False,
         "chunks": chunk_index,
