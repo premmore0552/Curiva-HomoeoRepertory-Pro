@@ -294,7 +294,42 @@ function App() {
                 <div className="matrix-footer-actions"><span>{rows.length} rubrics · {visibleRemedies.length} remedies</span><button className="remove-selected-button" onClick={removeSelected} disabled={!selectedRows.length}><Trash2 size={14} /> Remove selected</button></div>
               </div>
             </section>
-            <div className="disclaimer"><Info size={15} /><p><strong>Source-only status:</strong> No sample rubrics, remedies or grades are loaded. The chapter directory comes from the supplied PDF; the structured library is still being prepared and checked.</p></div>
+            <section className="library-browser">
+              <div className="library-browser-heading">
+                <div>
+                  <div className="eyebrow">SOURCE INDEX · PDF PAGE {kentSourceCatalog.contentsPdfPage}</div>
+                  <h2>Kent repertory chapter library</h2>
+                  <p>{kentSourceCatalog.chapters.length} chapter headings copied from the supplied PDF contents. These are internal book pages, not PDF page numbers.</p>
+                </div>
+                <span className="catalog-status">Chapter index only</span>
+              </div>
+              <div className="library-chapter-grid">
+                {kentSourceCatalog.chapters.map((chapter) => (
+                  <article className="library-chapter-card" key={chapter.id}>
+                    <div className="chapter-card-main">
+                      <strong>{chapter.title}</strong>
+                      <span>Book pages {chapter.bookPageStart}–{chapter.bookPageEnd}</span>
+                    </div>
+                    {chapter.subchapters?.map((subchapter) => (
+                      <div className="chapter-subentry" key={subchapter.id}>
+                        <span>{subchapter.title}</span>
+                        <small>{subchapter.bookPageStart}–{subchapter.bookPageEnd}</small>
+                      </div>
+                    ))}
+                    {chapter.pageSummaryDiscrepancy && (
+                      <div className="chapter-source-flag">
+                        Page {chapter.pageSummaryDiscrepancy.summaryPdfPage} summary lists {chapter.pageSummaryDiscrepancy.summaryBookPageStart}–{chapter.pageSummaryDiscrepancy.summaryBookPageEnd}; contents page {kentSourceCatalog.contentsPdfPage} lists {chapter.bookPageStart}–{chapter.bookPageEnd}.
+                      </div>
+                    )}
+                  </article>
+                ))}
+              </div>
+              <div className="source-grade-note">
+                <Info size={16} />
+                <span>Grade key on PDF page {kentSourceCatalog.gradeKey.pdfPage}: Capitals = {kentSourceCatalog.gradeKey.capitals}; Italics = {kentSourceCatalog.gradeKey.italics}; Ordinary = {kentSourceCatalog.gradeKey.ordinary}. Grades will remain hidden until actual rubric tokens have been parsed and checked.</span>
+              </div>
+            </section>
+                        <div className="disclaimer"><Info size={15} /><p><strong>Source-only status:</strong> No sample rubrics, remedies or grades are loaded. The chapter directory comes from the supplied PDF; the structured library is still being prepared and checked.</p></div>
           </>
         )}
 
