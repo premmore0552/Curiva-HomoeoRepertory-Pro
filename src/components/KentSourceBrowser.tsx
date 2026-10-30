@@ -46,7 +46,7 @@ type CandidateRecord = {
   source_section_id: string;
   line_text_as_extracted: string;
   token_as_printed_in_rubric: string;
-  matched_abbreviation_as_printed_in_index: string;
+  matched_abbreviation_as_printed_in_index_in_index: string;
   candidate_grade_from_source_key: number | null;
   grade_evidence: string;
   suggested_rubric_context?: string | null;
@@ -113,7 +113,7 @@ function validateCandidate(value: unknown): value is CandidateRecord {
     typeof value.source_section_id === "string" &&
     typeof value.line_text_as_extracted === "string" &&
     typeof value.token_as_printed_in_rubric === "string" &&
-    typeof value.matched_abbreviation_as_printed_in_index === "string" &&
+    typeof value.matched_abbreviation_as_printed_in_index_in_index === "string" &&
     (value.candidate_grade_from_source_key === null ||
       (Number.isInteger(value.candidate_grade_from_source_key) &&
         [1, 2, 3].includes(value.candidate_grade_from_source_key as number))) &&
@@ -200,17 +200,17 @@ function CandidateReviewCard({
     <article className={saved ? "candidate-review-card candidate-reviewed" : "candidate-review-card"}>
       <div className="candidate-card-top">
         <div>
-          <strong>{candidate.matched_abbreviation_as_printed}</strong>
+          <strong>{candidate.matched_abbreviation_as_printed_in_index}</strong>
           <span>PDF page {candidate.source_pdf_page} · {gradeLabel}</span>
         </div>
         {saved ? <span className="candidate-reviewed-label"><CheckCircle2 size={13} /> Reviewed locally</span> :
           <span className="candidate-pending-label">Needs review</span>}
       </div>
       <p className="candidate-source-line">{candidate.line_text_as_extracted || candidate.source_span.text}</p>
-      {candidate.suggested_rubric_context && <div className="candidate-context-hint">Suggested from source heading/line layout · {candidate.suggested_context_method?.replaceAll("_", " ")}</div>}
+      {candidate.suggested_rubric_context && <div className="candidate-context-hint">Suggested from source heading/line layout · {candidate.suggested_context_method?.replace(/_/g, " ")}</div>}
       <div className="candidate-style-evidence">
         Source token: <strong>{candidate.token_as_printed_in_rubric}</strong>
-        <span>{candidate.grade_evidence.replaceAll("_", " ")}</span>
+        <span>{candidate.grade_evidence.replace(/_/g, " ")}</span>
         <small>{candidate.source_span.color} · {candidate.source_span.font_family}{candidate.source_span.italic ? " · italic" : ""}</small>
       </div>
       <label className="candidate-rubric-field">
@@ -236,7 +236,7 @@ function CandidateReviewCard({
           disabled={!rubric.trim() || !grade || !sourceChecked}
           onClick={() => onSave({
             candidateId: candidate.id,
-            remedyAbbreviation: candidate.matched_abbreviation_as_printed_in_index,
+            remedyAbbreviation: candidate.matched_abbreviation_as_printed_in_index_in_index,
             rubricText: rubric.trim(),
             approvedGrade: grade as number,
             sourcePdfPage: candidate.source_pdf_page,
