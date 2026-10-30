@@ -16,7 +16,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 SOURCE_SHA256 = "8f7ef6e5029dfb0bf9a05800f63e5e05043d39c74d5dd0df500a27484aecec6e"
-ALLOWED_STATUSES = {"verified", "rejected", "uncertain"}
+ALLOWED_STATUSES = {"verified", "rejected", "uncertain", "duplicate"}
 
 
 def stable_id(prefix: str, value: str) -> str:
@@ -129,13 +129,20 @@ def main() -> None:
         abbreviations[key] = item.get("full_name_as_printed")
     abbreviation_index_sha256 = hashlib.sha256(abbreviation_path.read_bytes()).hexdigest()
 
-    candidate_ids = {
+    review_candidate_ids = [
         record.get("candidateId")
         for record in records
         if isinstance(record, dict) and isinstance(record.get("candidateId"), str) and record.get("candidateId")
+    ]
+    candidate_ids = set(review_candidate_ids)
+    if len(candidate_ids) != len(review_candidate_ids):
+        parser.error("The review export contains duplicate candidate IDs.")
+    duplicate_targets = {
+        record.get("duplicateOfCandidateId")
+        for record in records
+        if isinstance(record, dict) and isinstance(record.get("duplicateOfCandidateId"), str) and record.get("duplicateOfCandidateId")
     }
-    if len(candidate_ids) != sum(1 for record in records if isinstance(record, dict) and record.get("candidateId")):
-        parser.error("The review export contains duplicate or missing candidate IDs.")
+    candidate_ids.update(duplicate_targets)
     try:
         candidate_refs = load_candidate_references(candidate_index_path, candidate_ids, abbreviation_index_sha256)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
@@ -144,6 +151,7 @@ def main() -> None:
     accepted = []
     rejected = []
     uncertain = []
+    duplicates = []
     invalid = []
     seen_ids = set()
     for position, record in enumerate(records, 1):
@@ -181,6 +189,10 @@ def main() -> None:
                 reason = "grade_override_requires_review_note"
             else:
                 record["_rubric_path"] = [segment.strip() for segment in path_segments]
+        if status == "duplicate" and reason is None:
+            duplicate_target = record.get("duplicateOfCandidateId")
+            if not isinstance(duplicate_target, str) or not duplicate_target or duplicate_target == candidate_id or duplicate_target not in candidate_refs:
+                reason = "duplicate_target_candidate_not_found_or_invalid"
         if reason:
             invalid.append({"record_number": position, "candidate_id": candidate_id, "reason": reason})
             continue
@@ -189,10 +201,30 @@ def main() -> None:
             rejected.append({"candidate_id": candidate_id, "source_pdf_page": candidate["source_pdf_page"], "review_note": record.get("reviewNote", "")})
         elif status == "uncertain":
             uncertain.append({"candidate_id": candidate_id, "source_pdf_page": candidate["source_pdf_page"], "review_note": record.get("reviewNote", "")})
+        elif status == "duplicate":
+            duplicates.append({
+                "candidate_id": candidate_id,
+                "duplicate_of_candidate_id": record["duplicateOfCandidateId"],
+                "source_pdf_page": candidate["source_pdf_page"],
+                "review_note": record.get("reviewNote", ""),
+            })
         else:
             enriched = dict(record)
             enriched["_candidate"] = candidate
             accepted.append(enriched)
+
+    verified_candidate_ids = {item["candidateId"] for item in accepted}
+    valid_duplicates = []
+    for duplicate in duplicates:
+        if duplicate["duplicate_of_candidate_id"] not in verified_candidate_ids:
+            invalid.append({
+                "candidate_id": duplicate["candidate_id"],
+                "reason": "duplicate_target_must_have_a_verified_source_review",
+                "duplicate_of_candidate_id": duplicate["duplicate_of_candidate_id"],
+            })
+        else:
+            valid_duplicates.append(duplicate)
+    duplicates = valid_duplicates
 
     # Group verified source decisions by exact hierarchical path and remedy.
     pair_groups = defaultdict(list)
@@ -306,13 +338,15 @@ def main() -> None:
         "verified_decisions_accepted": len(accepted),
         "rejected_decisions": len(rejected),
         "uncertain_decisions": len(uncertain),
+        "confirmed_duplicate_decisions": len(duplicates),
+        "duplicate_decisions": duplicates,
         "invalid_decisions": invalid,
         "conflicting_rubric_remedy_pairs": conflicts,
         "rubric_node_count": len(rubrics),
         "remedy_count_published": len(remedies),
         "grade_pairs_published": published_pairs,
         "grade_pairs_withheld_for_conflict": len(conflict_keys),
-        "records_not_published": rejected + uncertain,
+        "records_not_published": rejected + uncertain + duplicates,
         "candidate_index": str(candidate_index_path),
         "abbreviation_index_sha256": abbreviation_index_sha256,
         "data_file": str(out_path),
@@ -325,6 +359,7 @@ def main() -> None:
         "verified_decisions_accepted": len(accepted),
         "rejected": len(rejected),
         "uncertain": len(uncertain),
+        "duplicates": len(duplicates),
         "invalid": len(invalid),
         "grade_conflicts": len(conflicts),
         "rubric_nodes": len(rubrics),
