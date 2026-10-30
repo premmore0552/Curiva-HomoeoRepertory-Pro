@@ -292,3 +292,44 @@ button:disabled{cursor:not-allowed;opacity:.45}
  .kent-source-page-list{max-height:260px}
  .kent-source-page-view{max-height:65vh}
 }
+
+.kent-source-view-tabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px;border-bottom:1px solid #e7edf3;padding-bottom:10px}
+.kent-source-view-tabs button{display:inline-flex;align-items:center;gap:7px;border:1px solid #e2e9f0;border-radius:9px;background:#fff;color:#63788c;padding:8px 11px;font-size:10px;font-weight:800}
+.kent-source-view-tabs button.active{background:#edf5ff;border-color:#bfd6ed;color:#2b6396}
+.kent-source-view-tabs .candidate-export-button{margin-left:auto}
+.candidate-review-summary{display:flex;justify-content:space-between;gap:10px;margin:13px 0 8px;color:#6f8091;font-size:10px;font-weight:700;flex-wrap:wrap}
+.candidate-page-count{margin:6px 0 9px;color:#8795a3;font-size:10px}
+.candidate-review-list{display:flex;flex-direction:column;gap:10px;max-height:680px;overflow:auto;padding:1px}
+.candidate-review-card{border:1px solid #e3eaf0;border-radius:11px;padding:12px;background:#fff;min-width:0}
+.candidate-reviewed{border-color:#b8d9c9;background:#fbfefc}
+.candidate-card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.candidate-card-top>div{display:flex;flex-direction:column;gap:3px}
+.candidate-card-top strong{font-family:Manrope,sans-serif;color:#2a5b85;font-size:13px}
+.candidate-card-top span{color:#8190a0;font-size:9px}
+.candidate-reviewed-label{display:inline-flex;align-items:center;gap:4px;color:#26774e!important;font-weight:800}
+.candidate-pending-label{border-radius:20px;background:#fff6e7;padding:4px 7px;color:#98702b!important;font-weight:800}
+.candidate-source-line{margin:9px 0;padding:9px;border-radius:7px;background:#f7f9fb;color:#35485b;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;line-height:1.5;overflow-wrap:anywhere;white-space:pre-wrap}
+.candidate-style-evidence{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:0 0 10px;color:#6f8091;font-size:9px}
+.candidate-style-evidence strong{color:#2c618f;font-size:10px}
+.candidate-style-evidence small{color:#929eaa}
+.candidate-rubric-field,.candidate-grade-field{display:flex;flex-direction:column;gap:5px;color:#53697e;font-size:9px;font-weight:800}
+.candidate-rubric-field input,.candidate-grade-field select{width:100%;min-width:0;border:1px solid #dfe6ed;border-radius:7px;padding:8px 9px;background:#fff;color:#263b50;font-size:11px;outline:none}
+.candidate-rubric-field input:focus,.candidate-grade-field select:focus{border-color:#7aa8d1;box-shadow:0 0 0 2px #dbeaf7}
+.candidate-review-actions{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-top:9px}
+.candidate-grade-field{width:150px;flex:none}
+.candidate-source-check{display:flex;align-items:center;gap:6px;color:#63788c;font-size:10px}
+.candidate-save-button{margin-left:auto;border:0;border-radius:8px;background:#2e77bd;color:#fff;padding:9px 11px;font-size:10px;font-weight:800}
+.candidate-save-button:disabled{cursor:not-allowed;background:#c5cfd8;color:#f7f9fb}
+.candidate-more-button{margin-top:12px;border:1px solid #d7e3ed;background:#f5f9fd;color:#32658e;border-radius:9px;padding:9px 13px;font-size:10px;font-weight:800}
+.candidate-review-footnote{margin-top:13px;padding:10px;border-radius:8px;background:#f7fafc;color:#8190a0;font-size:9px;line-height:1.5}
+@media(max-width:760px){
+ .kent-source-view-tabs{gap:6px}
+ .kent-source-view-tabs button{padding:8px 9px}
+ .kent-source-view-tabs .candidate-export-button{margin-left:0}
+ .candidate-review-summary{flex-direction:column;gap:4px}
+ .candidate-review-actions{align-items:stretch;flex-direction:column}
+ .candidate-grade-field{width:100%}
+ .candidate-source-check{min-height:32px}
+ .candidate-save-button{margin-left:0;width:100%}
+ .candidate-review-list{max-height:72vh}
+}
