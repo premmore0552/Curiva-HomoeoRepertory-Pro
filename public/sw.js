@@ -1,4 +1,4 @@
-const CACHE_NAME = 'curiva-repertory-shell-v1';
+const CACHE_NAME = 'curiva-repertory-shell-v2';
 const APP_SHELL = ['/', '/manifest.webmanifest', '/curiva-mark.svg'];
 
 self.addEventListener('install', (event) => {
@@ -18,6 +18,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
+
   event.respondWith(
     fetch(request).then((response) => {
       if (response.ok) {
@@ -25,6 +26,21 @@ self.addEventListener('fetch', (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
       }
       return response;
-    }).catch(() => caches.match(request).then((cached) => cached || caches.match('/'))),
+    }).catch(async () => {
+      const cached = await caches.match(request);
+      if (cached) return cached;
+
+      // Only navigations may fall back to the app shell. Returning index.html for a
+      // missing JSON/chunk request causes misleading JSON parse errors in the library.
+      if (request.mode === 'navigate') {
+        const shell = await caches.match('/');
+        if (shell) return shell;
+      }
+      return new Response('Offline: this resource is not cached.', {
+        status: 503,
+        statusText: 'Offline',
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      });
+    }),
   );
 });
