@@ -146,6 +146,10 @@ def main() -> None:
                 })
                 part += 1
 
+        missing_section_pages = sorted(set(range(1, page_count + 1)) - set(section_for_page))
+        if missing_section_pages:
+            parser.error("Section map does not cover PDF pages: " + str(missing_section_pages[:20]))
+
         xml_pages = 0
         # pdftohtml may define a font only once and reuse its ID on later pages.
         # Keep a document-wide map; resetting per page loses italic/color grade evidence.
