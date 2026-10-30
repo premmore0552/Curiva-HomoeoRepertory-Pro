@@ -130,7 +130,12 @@ def iter_chapter_chunks(source: Path, section_index: dict) -> Iterable[tuple[dic
         )
 
 
-def candidate_records(page: dict, abbreviations: dict[str, str], chunk_id: str):
+def candidate_records(
+    page: dict,
+    abbreviations: dict[str, str],
+    chunk_id: str,
+    context: dict[str, str],
+):
     items = page.get("text_items", [])
     if not items:
         return [], []
@@ -140,6 +145,26 @@ def candidate_records(page: dict, abbreviations: dict[str, str], chunk_id: str):
     section_id = str(page["section_id"])
     for group in group_lines(items):
         line_text = "".join(str(item.get("text", "")) for item in group).strip()
+        heading_spans = [
+            item for item in group
+            if bool(item.get("bold", False))
+            and str(item.get("color", "")).lower() in {"#000080", "#00008b", "navy"}
+            and "arial" in str(item.get("font_family", "")).lower()
+            and str(item.get("text", "")).strip()
+        ]
+        heading_text = " ".join(str(item.get("text", "")).strip() for item in heading_spans).strip()
+        context_method = "inherited_source_line_context"
+        if heading_text:
+            context["root"] = heading_text
+            context["path"] = heading_text
+            context_method = "source_heading_font_and_color"
+        elif ":" in line_text:
+            prefix = line_text.split(":", 1)[0].strip(" \t-–—")
+            if prefix:
+                root = context.get("root", "")
+                context["path"] = (root + " / " + prefix) if root and prefix != root else prefix
+                context_method = "source_line_text_before_colon"
+        suggested_context = context.get("path", "")
         for item_index, item in enumerate(group):
             span_text = str(item.get("text", ""))
             for token_index, match in enumerate(TOKEN.finditer(span_text)):
@@ -171,6 +196,8 @@ def candidate_records(page: dict, abbreviations: dict[str, str], chunk_id: str):
                         "bold": bool(item.get("bold", False)),
                         "italic": bool(item.get("italic", False)),
                     },
+                    "suggested_rubric_context": suggested_context or None,
+                    "suggested_context_method": context_method if suggested_context else "no_context_detected",
                     "rubric_assignment": "unassigned",
                     "verification_status": "needs_review",
                 })
@@ -223,7 +250,8 @@ def main() -> None:
                 total_pages += 1
                 if not page.get("text_items"):
                     empty_pages.append(int(page["pdf_page"]))
-                records, wrapped = candidate_records(page, abbreviations, chunk_id)
+                chapter_context = context_by_chapter.setdefault(section_id, {})
+                records, wrapped = candidate_records(page, abbreviations, chunk_id, chapter_context)
                 wrapped_fragments.extend(wrapped)
                 for record in records:
                     grade = record["candidate_grade_from_source_key"]
