@@ -238,6 +238,9 @@ def main() -> None:
     grade_counts: Counter[str] = Counter()
     chapter_counts: Counter[str] = Counter()
     chunk_index: list[dict] = []
+    # Keep rubric-heading context separate for each chapter while carrying it
+    # across the small source chunks that belong to that chapter.
+    context_by_chapter: dict[str, dict[str, str]] = {}
 
     for chunk, pages in iter_chapter_chunks(source, section_index):
         section_id = str(chunk["section_id"])
@@ -280,7 +283,9 @@ def main() -> None:
         "dataset_id": "kent-pdf-rubric-grade-candidate-index",
         "source_file_sha256": source_hash,
         "candidate_count": total_candidates,
+        "candidate_id_scheme": "chunk-page-layout-coordinate-span-token-v1",
         "verification_status": "needs_review",
+        "review_status_counts": {"pending": total_candidates, "verified": 0, "rejected": 0, "uncertain": 0},
         "rubric_hierarchy_assigned": False,
         "chunks": chunk_index,
     }
@@ -292,6 +297,7 @@ def main() -> None:
         "chapter_pages_processed": total_pages,
         "candidate_count": total_candidates,
         "candidate_counts_by_grade_evidence": dict(grade_counts),
+        "candidate_counts_by_chapter": dict(chapter_counts),
         "candidate_counts_by_chapter": dict(chapter_counts),
         "pages_without_layout_spans": empty_pages,
         "possible_wrapped_token_fragments": wrapped_fragments,
