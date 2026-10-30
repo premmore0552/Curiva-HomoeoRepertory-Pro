@@ -212,31 +212,31 @@ async function loadSavedReviews(): Promise<Record<string, CandidateReview>> {
     database.close();
   }
 
-  if (stored.length) {
-    return Object.fromEntries(stored.map((review) => [review.candidateId, review]));
-  }
+  const result = Object.fromEntries(stored.map((review) => [review.candidateId, review]));
 
-  // One-time migration from the original localStorage review format.
+  // One-time, resumable migration from the original localStorage review format.
   try {
     const raw = localStorage.getItem(REVIEW_STORAGE_KEY);
-    if (!raw) return {};
+    if (!raw) return result;
     const parsed: unknown = JSON.parse(raw);
-    if (!isObject(parsed)) return {};
+    if (!isObject(parsed)) return result;
     const legacy = parsed as Record<string, CandidateReview>;
     for (const review of Object.values(legacy)) {
-      if (review && typeof review.candidateId === "string") {
-        await storeSavedReview({
-          ...review,
-          rubricPath: Array.isArray(review.rubricPath) ? review.rubricPath :
-            (typeof review.rubricText === "string" ? review.rubricText.split(" / ").filter(Boolean) : []),
-          reviewStatus: review.reviewStatus ?? "verified",
-        });
-      }
+      if (!review || typeof review.candidateId !== "string" || result[review.candidateId]) continue;
+      const migrated: CandidateReview = {
+        ...review,
+        rubricPath: Array.isArray(review.rubricPath) ? review.rubricPath :
+          (typeof review.rubricText === "string" ? review.rubricText.split(" / ").filter(Boolean) : []),
+        reviewStatus: review.reviewStatus ?? "verified",
+      };
+      await storeSavedReview(migrated);
+      result[migrated.candidateId] = migrated;
     }
     localStorage.removeItem(REVIEW_STORAGE_KEY);
-    return legacy;
+    return result;
   } catch {
-    return {};
+    // Keep the legacy copy in localStorage if migration fails so it can be retried.
+    return result;
   }
 }
 
@@ -515,10 +515,14 @@ export default function KentSourceBrowser({
   const selectedPage = pages.find((page) => page.pdf_page === selectedPageNumber) ?? null;
 
   const saveReview = (review: CandidateReview) => {
-    setReviews((current) => ({ ...current, [review.candidateId]: review }));
-    void storeSavedReview(review).catch(() => {
-      setCandidateError("This review could not be written to IndexedDB. Export your existing decisions and check device storage.");
-    });
+    void storeSavedReview(review)
+      .then(() => {
+        setReviews((current) => ({ ...current, [review.candidateId]: review }));
+        setCandidateError("");
+      })
+      .catch(() => {
+        setCandidateError("This review could not be written to IndexedDB. Export your existing decisions and check device storage.");
+      });
   };
 
   const exportReviews = async () => {
