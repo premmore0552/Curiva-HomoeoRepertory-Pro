@@ -310,13 +310,13 @@ function App() {
                       <strong>{chapter.title}</strong>
                       <span>Book pages {chapter.bookPageStart}–{chapter.bookPageEnd}</span>
                     </div>
-                    {chapter.subchapters?.map((subchapter) => (
+                    {"subchapters" in chapter && chapter.subchapters?.map((subchapter) => (
                       <div className="chapter-subentry" key={subchapter.id}>
                         <span>{subchapter.title}</span>
                         <small>{subchapter.bookPageStart}–{subchapter.bookPageEnd}</small>
                       </div>
                     ))}
-                    {chapter.pageSummaryDiscrepancy && (
+                    {"pageSummaryDiscrepancy" in chapter && chapter.pageSummaryDiscrepancy && (
                       <div className="chapter-source-flag">
                         Page {chapter.pageSummaryDiscrepancy.summaryPdfPage} summary lists {chapter.pageSummaryDiscrepancy.summaryBookPageStart}–{chapter.pageSummaryDiscrepancy.summaryBookPageEnd}; contents page {kentSourceCatalog.contentsPdfPage} lists {chapter.bookPageStart}–{chapter.bookPageEnd}.
                       </div>
