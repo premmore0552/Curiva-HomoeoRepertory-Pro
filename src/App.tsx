@@ -182,13 +182,13 @@ function App() {
 
   const addRubric = (rubric: RubricRow) => {
     if (rows.some((row) => row.id === rubric.id)) {
-      setNotice('That sample rubric is already in this case.');
+      setNotice('That source rubric is already in this case.');
       return;
     }
     updateRows([...rows, cloneRows([rubric])[0]]);
     setShowAddRubric(false);
     setRubricSearch('');
-    setNotice('Sample rubric added. Verify its data source before clinical or academic use.');
+    setNotice('Source rubric added. Check its PDF page and verification status before relying on it.');
   };
 
   const exportCsv = () => {
