@@ -249,6 +249,7 @@ def main() -> None:
             "abbreviation_as_printed": abbreviation,
             "full_name_as_printed_in_pdf_index": abbreviations[abbreviation],
             "source_id": "kent-uploaded-pdf",
+            "abbreviation_verification_status": "verified",
         }
         grade_groups.append((leaf_id, abbreviation, group))
 
@@ -263,7 +264,6 @@ def main() -> None:
             "reviewed_at": sorted({item.get("savedAt", "") for item in group if item.get("savedAt")}),
             "grade_evidence_in_candidate": sorted({item["_candidate"]["grade_evidence"] for item in group}),
             "review_notes": [item["reviewNote"] for item in group if item.get("reviewNote")],
-            "abbreviation_verification_status": "verified",
             "verification_status": "user_verified_source_checked",
         })
         published_pairs += 1
