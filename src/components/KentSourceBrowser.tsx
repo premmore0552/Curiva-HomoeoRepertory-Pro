@@ -271,7 +271,7 @@ function CandidateReviewCard({
   const gradeLabel = candidate.candidate_grade_from_source_key === null
     ? "Unclear style"
     : "Grade " + candidate.candidate_grade_from_source_key + " candidate";
-  const rubricPath = rubric.split(/\\s*\\/\\s*/).map((part) => part.trim()).filter(Boolean);
+  const rubricPath = rubric.split(/\s*\/\s*/).map((part) => part.trim()).filter(Boolean);
   const saveDecision = (status: ReviewStatus) => onSave({
     candidateId: candidate.id,
     remedyAbbreviation: candidate.matched_abbreviation_as_printed_in_index,
