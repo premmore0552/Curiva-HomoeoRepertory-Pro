@@ -168,7 +168,7 @@ class AbbreviationParserTests(unittest.TestCase):
                 "--abbreviations", str(abbreviation_file), "--out", str(output_file)
             ], capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("complete, source-proofread index", result.stderr)
+        self.assertIn("consistent, source-proofread index", result.stderr)
 
 
 
