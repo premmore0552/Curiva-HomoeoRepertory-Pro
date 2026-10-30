@@ -44,30 +44,60 @@ def load_candidate_references(index_path: Path, required_ids: set[str], abbrevia
         raise ValueError("Candidate index source fingerprint does not match the supplied PDF.")
     if index.get("abbreviation_index_sha256") != abbreviation_index_sha256 or index.get("abbreviation_index_verified") is not True:
         raise ValueError("Candidate chunks must be regenerated from this exact proofread abbreviation index before verification.")
+
+    # Candidate IDs begin with their source chunk ID, so only read chunks that
+    # can contain a reviewed ID. This avoids scanning hundreds of MB on every build.
+    chunks_by_prefix = {}
+    for chunk in index.get("chunks", []):
+        chunk_id = chunk.get("chunk_id")
+        if not isinstance(chunk_id, str) or not chunk_id:
+            raise ValueError("Candidate index chunk is missing its stable chunk_id.")
+        chunks_by_prefix[chunk_id + "-p"] = chunk
+
+    requested_by_prefix: dict[str, set[str]] = defaultdict(set)
+    unknown_ids = []
+    for candidate_id in required_ids:
+        matches = [prefix for prefix in chunks_by_prefix if candidate_id.startswith(prefix)]
+        if len(matches) != 1:
+            unknown_ids.append(candidate_id)
+            continue
+        requested_by_prefix[matches[0]].add(candidate_id)
+    if unknown_ids:
+        raise ValueError("Review export contains candidate IDs with no source chunk: " + ", ".join(sorted(unknown_ids)[:10]))
+
     references: dict[str, dict[str, Any]] = {}
     base = index_path.parent
-    missing_files = []
-    for chunk in index.get("chunks", []):
+    for prefix, requested_ids in requested_by_prefix.items():
+        chunk = chunks_by_prefix[prefix]
         path = safe_path(base, str(chunk.get("file", "")))
         if not path.is_file():
-            missing_files.append(str(path))
-            continue
-        found_in_chunk = 0
+            raise FileNotFoundError("Candidate source chunk is missing: " + str(path))
+        observed_count = 0
         with path.open(encoding="utf-8") as handle:
             for line_number, line in enumerate(handle, 1):
                 if not line.strip():
                     continue
+                observed_count += 1
                 candidate = json.loads(line)
                 candidate_id = candidate.get("id")
-                if candidate_id not in required_ids:
+                if candidate_id not in requested_ids:
                     continue
-                found_in_chunk += 1
                 if candidate_id in references:
                     raise ValueError("Duplicate candidate ID in source index: " + str(candidate_id))
+                page = candidate.get("source_pdf_page")
+                section = candidate.get("source_section_id")
+                if (
+                    not isinstance(page, int)
+                    or isinstance(page, bool)
+                    or page < int(chunk.get("pdf_page_start", 0))
+                    or page > int(chunk.get("pdf_page_end", -1))
+                    or section != chunk.get("section_id")
+                ):
+                    raise ValueError("Candidate source page or chapter disagrees with its chunk index: " + str(candidate_id))
                 references[candidate_id] = {
                     "id": candidate_id,
-                    "source_pdf_page": candidate.get("source_pdf_page"),
-                    "source_section_id": candidate.get("source_section_id"),
+                    "source_pdf_page": page,
+                    "source_section_id": section,
                     "matched_abbreviation_as_printed_in_index": candidate.get("matched_abbreviation_as_printed_in_index"),
                     "token_as_printed_in_rubric": candidate.get("token_as_printed_in_rubric"),
                     "candidate_grade_from_source_key": candidate.get("candidate_grade_from_source_key"),
@@ -75,10 +105,14 @@ def load_candidate_references(index_path: Path, required_ids: set[str], abbrevia
                     "chunk_file": str(path),
                     "line_number": line_number,
                 }
-        if found_in_chunk > int(chunk.get("candidate_count", -1)):
-            raise ValueError("Candidate count in chunk exceeds index declaration: " + str(path))
-    if missing_files:
-        raise ValueError("Candidate source chunks are missing: " + "; ".join(missing_files[:5]))
+        if observed_count != int(chunk.get("candidate_count", -1)):
+            raise ValueError(
+                f"Candidate count mismatch in {path}: expected {chunk.get('candidate_count')}, found {observed_count}"
+            )
+        missing = sorted(requested_ids - set(references))
+        if missing:
+            raise ValueError("Reviewed candidate IDs are missing from source chunk: " + ", ".join(missing[:10]))
+
     unresolved = sorted(required_ids - set(references))
     if unresolved:
         raise ValueError("Review export contains candidate IDs not found in source dataset: " + ", ".join(unresolved[:10]))
