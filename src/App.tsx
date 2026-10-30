@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { kentSourceCatalog } from './data/kent-source-catalog';
+import type { KentRemedyAbbreviationRecord } from './data/kent-remedy-index';
+import { KentSourceDataNotInstalledError, loadKentRemedyAbbreviationIndex } from './lib/kentRemedyIndexLoader';
 import {
   Activity, ArrowDownUp, BookOpen, ChevronDown, CircleHelp, Copy, Download,
   Filter, FolderOpen, Home, Info, Menu, Merge, Plus, Search, ShoppingBag,
@@ -7,7 +9,6 @@ import {
 } from 'lucide-react';
 
 type Page = 'home' | 'repertory' | 'materia' | 'cases' | 'shop';
-type Remedy = { id: string; abbr: string; name: string; author: string };
 type RubricRow = {
   id: string;
   path: string;
@@ -16,7 +17,6 @@ type RubricRow = {
 };
 
 // No placeholder repertory data is bundled. Records will come only from the supplied PDF.
-const remedies: Remedy[] = [];
 const addableRubrics: RubricRow[] = [];
 
 const cloneRows = (rows: RubricRow[]) => rows.map((row) => ({ ...row, values: { ...row.values } }));
@@ -53,6 +53,42 @@ function App() {
   const [showHelp, setShowHelp] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [notice, setNotice] = useState('PDF chapter index loaded · structured rubric data not imported yet');
+  const [remedyIndex, setRemedyIndex] = useState<KentRemedyAbbreviationRecord[]>([]);
+  const [remedyIndexStatus, setRemedyIndexStatus] = useState<'idle' | 'loading' | 'loaded' | 'missing' | 'error'>('idle');
+  const [remedyIndexError, setRemedyIndexError] = useState('');
+  const [remedyQuery, setRemedyQuery] = useState('');
+
+  useEffect(() => {
+    if (page !== 'materia') return;
+    const controller = new AbortController();
+    setRemedyIndexStatus('loading');
+    loadKentRemedyAbbreviationIndex(controller.signal)
+      .then((dataset) => {
+        setRemedyIndex(dataset.records);
+        setRemedyIndexStatus('loaded');
+        setRemedyIndexError('');
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        if (error instanceof KentSourceDataNotInstalledError) {
+          setRemedyIndexStatus('missing');
+          setRemedyIndexError(error.message);
+        } else {
+          setRemedyIndexStatus('error');
+          setRemedyIndexError(error instanceof Error ? error.message : 'Could not load the source index.');
+        }
+      });
+    return () => controller.abort();
+  }, [page]);
+
+  const filteredRemedyIndex = useMemo(() => {
+    const query = remedyQuery.trim().toLocaleLowerCase();
+    if (!query) return remedyIndex;
+    return remedyIndex.filter((record) =>
+      record.abbreviation_as_printed.toLocaleLowerCase().includes(query) ||
+      record.full_name_as_printed.toLocaleLowerCase().includes(query)
+    );
+  }, [remedyIndex, remedyQuery]);
 
   const updateRows = (next: RubricRow[]) => {
     setPast((stack) => [...stack.slice(-29), cloneRows(rows)]);
@@ -342,9 +378,32 @@ function App() {
         </section>}
 
         {page === 'materia' && <section className="page-card">
-          <div className="page-heading"><div className="eyebrow">REFERENCE LIBRARY</div><h1>Materia Medica</h1><p>The PDF’s remedy abbreviation index (introductory PDF pages 10–18) will be parsed into this library. No external remedy entries are added.</p></div>
-          <div className="remedy-library">{remedies.slice(0, 12).map((remedy) => <article className="remedy-card" key={remedy.id}><div className="remedy-avatar">{remedy.abbr.slice(0, 1)}</div><div><strong>{remedy.name}</strong><span>{remedy.abbr} · Author: {remedy.author}</span></div><span className="coming-label">Index preview</span></article>)}</div>
-          {!remedies.length && <div className="empty-library-note">No remedy records are loaded. The abbreviation table in your PDF will be imported first, preserving the printed abbreviation and full name exactly as shown.</div>}
+          <div className="page-heading">
+            <div className="eyebrow">KENT PDF SOURCE INDEX · PAGES 10–18</div>
+            <h1>Remedy abbreviation library</h1>
+            <p>This is the abbreviation table printed in your PDF, not a full Materia Medica. Abbreviations and names are displayed as printed; no extra remedies or aliases are added.</p>
+          </div>
+          <div className="rubric-search-box remedy-index-search"><Search size={16} /><input aria-label="Search remedy abbreviation or name" value={remedyQuery} onChange={(event) => setRemedyQuery(event.target.value)} placeholder="Search printed abbreviation or full name..." /></div>
+          {remedyIndexStatus === 'loading' && <div className="empty-library-note">Loading the local Kent abbreviation index…</div>}
+          {remedyIndexStatus === 'missing' && <div className="empty-library-note"><strong>Source data file not installed.</strong><p>Copy the PDF-derived remedy-abbreviations.json file to public/data/kent/remedy-abbreviations.json. It is included in the source-chunks ZIP under structured/.</p></div>}
+          {remedyIndexStatus === 'error' && <div className="empty-library-note"><strong>Source index could not be loaded.</strong><p>{remedyIndexError}</p></div>}
+          {remedyIndexStatus === 'loaded' && <>
+            <div className="remedy-index-summary">{filteredRemedyIndex.length} of {remedyIndex.length} printed abbreviation records · source PDF pages 10–18</div>
+            <div className="remedy-library">
+              {filteredRemedyIndex.map((record) => (
+                <article className="remedy-card" key={record.id}>
+                  <div className="remedy-avatar">{record.abbreviation_as_printed.slice(0, 1)}</div>
+                  <div className="remedy-index-copy">
+                    <strong>{record.abbreviation_as_printed}</strong>
+                    <span>{record.full_name_as_printed}</span>
+                    <small>PDF page {record.source_pdf_page}{record.source_pdf_pages.length > 1 ? ' · continues on page ' + record.source_pdf_pages[1] : ''}</small>
+                  </div>
+                  <span className="coming-label">PDF transcription</span>
+                </article>
+              ))}
+              {!filteredRemedyIndex.length && <div className="empty-library-note">No source entry matches that search.</div>}
+            </div>
+          </>}
         </section>}
 
         {page === 'cases' && <section className="page-card">
