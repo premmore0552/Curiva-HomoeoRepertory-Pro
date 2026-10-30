@@ -140,7 +140,7 @@ class AbbreviationParserTests(unittest.TestCase):
             abbreviation_map = GRADE_CANDIDATES.load_abbreviation_map(abbreviation_path)
             candidates, qc = GRADE_CANDIDATES.extract_candidates(root, abbreviation_map)
 
-        self.assertEqual([item["candidate_grade_from_source_typography"] for item in candidates], [1, 2, 3])
+        self.assertEqual([item["candidate_grade_from_source_key"] for item in candidates], [1, 2, 3])
         self.assertEqual([item["verification_status"] for item in candidates], ["needs_review"] * 3)
         self.assertTrue(all(item["rubric_assignment"] == "unassigned" for item in candidates))
         self.assertEqual(qc["records_verified"], 0)
