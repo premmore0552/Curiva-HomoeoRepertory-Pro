@@ -207,6 +207,7 @@ function CandidateReviewCard({
           <span className="candidate-pending-label">Needs review</span>}
       </div>
       <p className="candidate-source-line">{candidate.line_text_as_extracted || candidate.source_span.text}</p>
+      <a className="candidate-open-source" href={"/data/kent/source.pdf#page=" + candidate.source_pdf_page} target="_blank" rel="noreferrer">Open original PDF · page {candidate.source_pdf_page}</a>
       {candidate.suggested_rubric_context && <div className="candidate-context-hint">Suggested from source heading/line layout · {candidate.suggested_context_method?.replace(/_/g, " ")}</div>}
       <div className="candidate-style-evidence">
         Source token: <strong>{candidate.token_as_printed_in_rubric}</strong>
@@ -486,6 +487,7 @@ export default function KentSourceBrowser({
                   {selectedPage ? <>
                     <div className="kent-source-page-heading">
                       <strong>PDF page {selectedPage.pdf_page}</strong>
+                      <a href={"/data/kent/source.pdf#page=" + selectedPage.pdf_page} target="_blank" rel="noreferrer">Open original PDF</a>
                       {selectedPage.boundary_page_review && <span>Boundary page · check chapter transition</span>}
                     </div>
                     <pre>{selectedPage.text}</pre>
