@@ -151,18 +151,33 @@ def main() -> None:
         parser.error("No review decisions were supplied.")
 
     abbreviation_payload = json.loads(abbreviation_path.read_text(encoding="utf-8"))
+    abbreviation_records = abbreviation_payload.get("records")
+    proofreading = abbreviation_payload.get("proofreading")
     if (
         abbreviation_payload.get("dataset_id") != "kent-pdf-remedy-abbreviation-index"
         or abbreviation_payload.get("duplicate_abbreviation_count") != 0
         or abbreviation_payload.get("source_file_sha256") != SOURCE_SHA256
-        or abbreviation_payload.get("proofreading", {}).get("status") not in {"partial", "complete"}
+        or not isinstance(abbreviation_records, list)
+        or not isinstance(proofreading, dict)
+        or proofreading.get("status") not in {"partial", "complete"}
+        or proofreading.get("verified_record_count") != len(abbreviation_records)
+        or not isinstance(proofreading.get("source_record_count"), int)
+        or proofreading["source_record_count"] < len(abbreviation_records)
+        or (
+            proofreading.get("status") == "complete"
+            and proofreading["source_record_count"] != len(abbreviation_records)
+        )
     ):
-        parser.error("The abbreviation index must be a complete, source-proofread index for this supplied PDF.")
+        parser.error("The abbreviation index must be a consistent, source-proofread index for this supplied PDF.")
     abbreviations = {}
-    for item in abbreviation_payload.get("records", []):
+    for item in abbreviation_records:
         key = item.get("abbreviation_as_printed")
-        if not isinstance(key, str) or not key or key in abbreviations:
-            parser.error("The proofread abbreviation index contains a missing or duplicate printed abbreviation.")
+        if (
+            not isinstance(key, str) or not key or key in abbreviations
+            or not isinstance(item.get("full_name_as_printed"), str)
+            or not item.get("full_name_as_printed").strip()
+        ):
+            parser.error("The proofread abbreviation index contains a missing, duplicate or incomplete printed entry.")
         if item.get("verification_status") != "verified":
             parser.error("Only source-proofread abbreviation entries can be used in the active repertory.")
         abbreviations[key] = item.get("full_name_as_printed")
