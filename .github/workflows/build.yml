@@ -7,33 +7,34 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# Cancel older runs for the same PR/branch when a newer commit arrives.
-# This prevents transient half-updated commits from stacking up as separate failures.
+# Keep only the newest check for each PR/branch. Older overlapping checks
+# are cancelled instead of appearing as competing stale failures.
 concurrency:
   group: curiva-build-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
-    name: Python validation and frontend build
-    runs-on: ubuntu-latest
+    name: Validate source importers and build app
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: "3.12"
+          python-version: "3.12.15"
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version: "22.23.4"
+          package-manager-cache: false
 
       - name: Check Python import scripts
         run: |
@@ -46,40 +47,8 @@ jobs:
       - name: Test PDF import and section mapping
         run: python -m unittest discover -s tests -v
 
-      # Temporary bootstrap step: create a real lockfile with the CI Node/npm version.
-      # The artifact is committed in the following change, then this step is removed.
-      - name: Generate package lock for first reproducible install
-        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-
-      - name: Export generated dependency lock
-        uses: actions/upload-artifact@v4
-        with:
-          name: curiva-package-lock
-          path: package-lock.json
-          if-no-files-found: error
-          retention-days: 1
-
-      - name: Commit generated lockfile to this PR branch
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        env:
-          PR_BRANCH: ${{ github.head_ref }}
-        run: |
-          cp package-lock.json "$RUNNER_TEMP/package-lock.json"
-          git fetch origin "$PR_BRANCH"
-          git checkout -B "$PR_BRANCH" "origin/$PR_BRANCH"
-          cp "$RUNNER_TEMP/package-lock.json" package-lock.json
-          git add package-lock.json
-          if git diff --cached --quiet; then
-            echo "The dependency lockfile is already current."
-            exit 0
-          fi
-          git -c user.name="github-actions[bot]" \
-              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
-              commit -m "chore: add reproducible npm dependency lockfile"
-          git push origin "HEAD:$PR_BRANCH"
-
-      - name: Install locked dependencies
+      - name: Install exact locked dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Type-check and build
+      - name: Type-check and production build
         run: npm run build
