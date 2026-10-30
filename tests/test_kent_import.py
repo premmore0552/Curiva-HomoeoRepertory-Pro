@@ -44,6 +44,13 @@ class SectionMapTests(unittest.TestCase):
                 count += 1
         self.assertEqual(count, 134)
 
+    def test_every_repertory_section_has_a_matching_app_chapter_id(self):
+        import re
+        catalog = (ROOT / "src" / "data" / "kent-source-catalog.ts").read_text(encoding="utf-8")
+        catalog_ids = set(re.findall(r'id: "([^"]+)"', catalog))
+        importer_ids = {section_id for section_id, _title, _start, _end, internal in PREPARE.SECTIONS if internal is not None}
+        self.assertEqual(importer_ids - catalog_ids, set())
+
 
 class AbbreviationParserTests(unittest.TestCase):
     def make_source(self, root: Path, missing_page: int | None = None) -> None:
