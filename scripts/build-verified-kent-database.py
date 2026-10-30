@@ -252,19 +252,6 @@ def main() -> None:
             enriched["_candidate"] = candidate
             accepted.append(enriched)
 
-    verified_candidate_ids = {item["candidateId"] for item in accepted}
-    valid_duplicates = []
-    for duplicate in duplicates:
-        if duplicate["duplicate_of_candidate_id"] not in verified_candidate_ids:
-            invalid.append({
-                "candidate_id": duplicate["candidate_id"],
-                "reason": "duplicate_target_must_have_a_verified_source_review",
-                "duplicate_of_candidate_id": duplicate["duplicate_of_candidate_id"],
-            })
-        else:
-            valid_duplicates.append(duplicate)
-    duplicates = valid_duplicates
-
     # Group verified source decisions by exact hierarchical path and remedy.
     pair_groups = defaultdict(list)
     for record in accepted:
@@ -288,6 +275,28 @@ def main() -> None:
                 "source_pages": sorted({item["sourcePdfPage"] for item in group}),
                 "candidate_ids": [item["candidateId"] for item in group],
             })
+
+    conflicted_candidate_ids = {
+        item["candidateId"]
+        for key, group in pair_groups.items()
+        if key in conflict_keys
+        for item in group
+    }
+    publishable_candidate_ids = {
+        item["candidateId"] for item in accepted
+        if item["candidateId"] not in conflicted_candidate_ids
+    }
+    valid_duplicates = []
+    for duplicate in duplicates:
+        if duplicate["duplicate_of_candidate_id"] not in publishable_candidate_ids:
+            invalid.append({
+                "candidate_id": duplicate["candidate_id"],
+                "reason": "duplicate_target_must_be_a_non_conflicting_verified_record",
+                "duplicate_of_candidate_id": duplicate["duplicate_of_candidate_id"],
+            })
+        else:
+            valid_duplicates.append(duplicate)
+    duplicates = valid_duplicates
 
     rubric_nodes: dict[str, dict[str, Any]] = {}
     remedies: dict[str, dict[str, Any]] = {}
