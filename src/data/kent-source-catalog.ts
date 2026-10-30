@@ -62,7 +62,7 @@ export const kentSourceCatalog = {
     { id: "larynx-trachea", title: "Larynx and trachea", bookPageStart: 746, bookPageEnd: 762 },
     { id: "respiration", title: "Respiration", bookPageStart: 762, bookPageEnd: 777 },
     { id: "cough", title: "Cough", bookPageStart: 778, bookPageEnd: 811 },
-    { id: "expectoration", title: "Expectoration", bookPageStart: 812, bookPageEnd: 821 },
+    { id: "expectorations", title: "Expectoration", bookPageStart: 812, bookPageEnd: 821 },
     { id: "chest", title: "Chest", bookPageStart: 822, bookPageEnd: 883 },
     { id: "back", title: "Back", bookPageStart: 884, bookPageEnd: 951 },
     { id: "extremities", title: "Extremities", bookPageStart: 952, bookPageEnd: 1233 },

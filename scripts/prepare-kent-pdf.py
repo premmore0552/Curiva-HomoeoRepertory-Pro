@@ -122,12 +122,16 @@ def main() -> None:
         chunk_map = []
         writers = {}
         for sid, title, start, end, internal_range in SECTIONS:
+            if start < 1 or end > page_count or start > end:
+                parser.error("Invalid section range for " + sid + ": " + str(start) + "–" + str(end))
             section_meta.append({
                 "id": sid, "title": title, "pdf_page_start": start, "pdf_page_end": end,
                 "page_count": end - start + 1, "internal_page_range": internal_range,
                 "subsections": URINARY_CHILDREN if sid == "urinary-organs" else [],
             })
             for page_no in range(start, end + 1):
+                if page_no in section_for_page:
+                    parser.error("Overlapping source section mapping at PDF page " + str(page_no))
                 section_for_page[page_no] = (sid, title)
             part = 1
             for first in range(start, end + 1, CHUNK_PAGES):
@@ -142,7 +146,12 @@ def main() -> None:
                 })
                 part += 1
 
+        missing_section_pages = sorted(set(range(1, page_count + 1)) - set(section_for_page))
+        if missing_section_pages:
+            parser.error("Section map does not cover PDF pages: " + str(missing_section_pages[:20]))
+
         xml_pages = 0
+        xml_page_numbers = set()
         # pdftohtml may define a font only once and reuse its ID on later pages.
         # Keep a document-wide map; resetting per page loses italic/color grade evidence.
         font_map = {}
@@ -153,6 +162,9 @@ def main() -> None:
             if page_no < 1 or page_no > page_count:
                 page.clear()
                 continue
+            if page_no in xml_page_numbers:
+                parser.error("Duplicate layout XML page number: " + str(page_no))
+            xml_page_numbers.add(page_no)
             xml_pages += 1
             sid, title = section_for_page[page_no]
             for fs in page.findall("fontspec"):
@@ -201,6 +213,11 @@ def main() -> None:
             page.clear()
         for writer in writers.values():
             writer.close()
+        missing_xml_pages = sorted(set(range(1, page_count + 1)) - xml_page_numbers)
+        if missing_xml_pages:
+            parser.error("Layout XML is missing PDF pages: " + str(missing_xml_pages[:20]))
+        if xml_pages != page_count:
+            parser.error("Layout extraction page count mismatch: processed " + str(xml_pages) + ", expected " + str(page_count))
 
     lengths = [len(value.strip()) for value in raw_pages]
     under_15 = [i + 1 for i, value in enumerate(lengths) if value < 15]
@@ -291,10 +308,20 @@ This is a raw source staging pack, not verified structured rubric/remedy/grade d
 """
     (out / "README.md").write_text(readme, encoding="utf-8")
     zip_path.parent.mkdir(parents=True, exist_ok=True)
+    # Archive only this run's declared outputs. This prevents stale files from an older
+    # extraction in a reused output directory from silently entering the ZIP.
+    generated_files = [
+        out / "source-metadata.json",
+        out / "section-index.json",
+        out / "QC_REPORT.md",
+        out / "README.md",
+        *sorted((out / "chunks").rglob("*.jsonl")),
+    ]
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
-        for file in sorted(out.rglob("*")):
-            if file.is_file():
-                archive.write(file, Path("kent-source-chunks") / file.relative_to(out))
+        for file in generated_files:
+            if not file.is_file():
+                parser.error("Expected generated source file is missing: " + str(file))
+            archive.write(file, Path("kent-source-chunks") / file.relative_to(out))
     print("Created " + str(zip_path) + " with " + str(len(chunk_map)) + " chunks from " + str(page_count) + " PDF pages.")
 
 if __name__ == "__main__":
