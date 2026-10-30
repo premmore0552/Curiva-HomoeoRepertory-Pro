@@ -56,7 +56,7 @@ def load_candidate_references(index_path: Path, required_ids: set[str], abbrevia
 
     requested_by_chunk: dict[str, set[str]] = defaultdict(set)
     unknown_ids = []
-    candidate_id_pattern = re.compile(r"^(?P<chunk>.+)-p\\d{4}-y\\d+-x\\d+-i\\d+-t\\d+$")
+    candidate_id_pattern = re.compile(r"^(?P<chunk>.+)-p\d{4}-y\d+-x\d+-i\d+-t\d+$")
     for candidate_id in required_ids:
         match = candidate_id_pattern.fullmatch(candidate_id)
         if not match:
