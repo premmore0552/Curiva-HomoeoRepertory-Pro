@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -58,6 +58,25 @@ jobs:
           path: package-lock.json
           if-no-files-found: error
           retention-days: 1
+
+      - name: Commit generated lockfile to this PR branch
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          PR_BRANCH: ${{ github.head_ref }}
+        run: |
+          cp package-lock.json "$RUNNER_TEMP/package-lock.json"
+          git fetch origin "$PR_BRANCH"
+          git checkout -B "$PR_BRANCH" "origin/$PR_BRANCH"
+          cp "$RUNNER_TEMP/package-lock.json" package-lock.json
+          git add package-lock.json
+          if git diff --cached --quiet; then
+            echo "The dependency lockfile is already current."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -m "chore: add reproducible npm dependency lockfile"
+          git push origin "HEAD:$PR_BRANCH"
 
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
