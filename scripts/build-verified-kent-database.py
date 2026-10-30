@@ -34,7 +34,7 @@ def safe_path(base: Path, relative: str) -> Path:
     return target
 
 
-def load_candidate_references(index_path: Path, required_ids: set[str]) -> dict[str, dict[str, Any]]:
+def load_candidate_references(index_path: Path, required_ids: set[str], abbreviation_index_sha256: str) -> dict[str, dict[str, Any]]:
     if not index_path.is_file():
         raise ValueError("Candidate index not found: " + str(index_path))
     index = json.loads(index_path.read_text(encoding="utf-8"))
@@ -42,6 +42,8 @@ def load_candidate_references(index_path: Path, required_ids: set[str]) -> dict[
         raise ValueError("Candidate index is not the Kent PDF candidate dataset.")
     if index.get("source_file_sha256") != SOURCE_SHA256:
         raise ValueError("Candidate index source fingerprint does not match the supplied PDF.")
+    if index.get("abbreviation_index_sha256") != abbreviation_index_sha256 or index.get("abbreviation_index_verified") is not True:
+        raise ValueError("Candidate chunks must be regenerated from this exact proofread abbreviation index before verification.")
     references: dict[str, dict[str, Any]] = {}
     base = index_path.parent
     missing_files = []
@@ -86,7 +88,7 @@ def load_candidate_references(index_path: Path, required_ids: set[str]) -> dict[
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build the verified Kent database from source-checked candidate reviews.")
     parser.add_argument("--reviews", type=Path, required=True)
-    parser.add_argument("--abbreviations", type=Path, default=Path("kent-source-chunks/structured/remedy-abbreviations.json"))
+    parser.add_argument("--abbreviations", type=Path, default=Path("kent-source-chunks/structured/verified-remedy-abbreviations.json"))
     parser.add_argument("--candidate-index", type=Path, default=None, help="grade-candidates-index.json; defaults beside the abbreviation index")
     parser.add_argument("--out", type=Path, default=Path("verified-rubric-remedy-grades.json"))
     args = parser.parse_args()
@@ -110,14 +112,22 @@ def main() -> None:
         parser.error("No review decisions were supplied.")
 
     abbreviation_payload = json.loads(abbreviation_path.read_text(encoding="utf-8"))
-    if abbreviation_payload.get("dataset_id") != "kent-pdf-remedy-abbreviation-index" or abbreviation_payload.get("duplicate_abbreviation_count") != 0:
-        parser.error("The abbreviation index is not a valid unique index from the supplied PDF.")
+    if (
+        abbreviation_payload.get("dataset_id") != "kent-pdf-remedy-abbreviation-index"
+        or abbreviation_payload.get("duplicate_abbreviation_count") != 0
+        or abbreviation_payload.get("source_file_sha256") != SOURCE_SHA256
+        or abbreviation_payload.get("proofreading", {}).get("status") != "complete"
+    ):
+        parser.error("The abbreviation index must be a complete, source-proofread index for this supplied PDF.")
     abbreviations = {}
     for item in abbreviation_payload.get("records", []):
         key = item.get("abbreviation_as_printed")
         if not isinstance(key, str) or not key or key in abbreviations:
-            parser.error("The source abbreviation index contains a missing or duplicate printed abbreviation.")
+            parser.error("The proofread abbreviation index contains a missing or duplicate printed abbreviation.")
+        if item.get("verification_status") != "verified":
+            parser.error("Only source-proofread abbreviation entries can be used in the active repertory.")
         abbreviations[key] = item.get("full_name_as_printed")
+    abbreviation_index_sha256 = hashlib.sha256(abbreviation_path.read_bytes()).hexdigest()
 
     candidate_ids = {
         record.get("candidateId")
@@ -127,7 +137,7 @@ def main() -> None:
     if len(candidate_ids) != sum(1 for record in records if isinstance(record, dict) and record.get("candidateId")):
         parser.error("The review export contains duplicate or missing candidate IDs.")
     try:
-        candidate_refs = load_candidate_references(candidate_index_path, candidate_ids)
+        candidate_refs = load_candidate_references(candidate_index_path, candidate_ids, abbreviation_index_sha256)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         parser.error(str(exc))
 
@@ -165,7 +175,7 @@ def main() -> None:
                 path_segments = [part.strip() for part in legacy.split(" / ")] if isinstance(legacy, str) else []
             if not path_segments or any(not segment.strip() for segment in path_segments):
                 reason = "missing_exact_rubric_path"
-            elif record.get("approvedGrade") not in (1, 2, 3):
+            elif isinstance(record.get("approvedGrade"), bool) or record.get("approvedGrade") not in (1, 2, 3):
                 reason = "invalid_grade"
             elif record.get("approvedGrade") != candidate["candidate_grade_from_source_key"] and not str(record.get("reviewNote", "")).strip():
                 reason = "grade_override_requires_review_note"
@@ -222,6 +232,7 @@ def main() -> None:
             rubric_id = stable_id("kent-rubric", prefix)
             node = rubric_nodes.setdefault(rubric_id, {
                 "id": rubric_id,
+                "source_id": "kent-uploaded-pdf",
                 "chapter_id": chapter_id,
                 "parent_rubric_id": parent_id,
                 "depth": depth,
@@ -267,6 +278,7 @@ def main() -> None:
         "source": {
             "source_id": "kent-uploaded-pdf",
             "source_file_sha256": SOURCE_SHA256,
+            "abbreviation_index_sha256": abbreviation_index_sha256,
             "source_file_name": "J.T. Kent s Repertory.pdf",
             "grade_key_pdf_page": 36,
             "grade_key": {"ordinary": 1, "italics": 2, "capitals": 3},
@@ -300,6 +312,7 @@ def main() -> None:
         "grade_pairs_withheld_for_conflict": len(conflict_keys),
         "records_not_published": rejected + uncertain,
         "candidate_index": str(candidate_index_path),
+        "abbreviation_index_sha256": abbreviation_index_sha256,
         "data_file": str(out_path),
         "policy": "Verified only means that the reviewer confirmed the original PDF. Rejected/uncertain items are excluded. Conflicts are withheld; hierarchy is the exact reviewer-entered path.",
     }
