@@ -197,7 +197,6 @@ function App() {
     setNotice('CSV export created for the current case matrix.');
   };
 
-  const totalDegree = Object.values(remedyTotals).reduce((sum, item) => sum + item.sum, 0);
   const filteredAddable = addableRubrics.filter((rubric) => rubric.path.toLowerCase().includes(rubricSearch.toLowerCase()));
 
   return (
